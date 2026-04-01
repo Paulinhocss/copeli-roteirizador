@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Roteirizador Copeli</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f3ef;--surface:#fff;--border:#e0ded6;--text:#1a1a18;--muted:#6b6b62;
+  --blue:#1a5fa8;--blue-l:#e8f0fb;--green:#2d6b0e;--green-l:#e6f2df;
+  --red:#993c1d;--red-l:#fceae8;--amber:#8a5a00;--amber-l:#fdf3e0;
+  --font:'DM Sans',sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;font-size:13px}
+.app{display:flex;height:100vh}
+
+/* SIDEBAR */
+.sidebar{width:400px;min-width:360px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.s-header{padding:16px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:3px}
+.logo-icon{width:30px;height:30px;background:var(--text);border-radius:7px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:16px;height:16px;fill:white}
+.logo h1{font-size:14px;font-weight:600;letter-spacing:-0.3px}
+.logo-sub{font-size:10px;color:var(--muted);margin-left:40px}
+.tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{flex:1;padding:10px 6px;font-size:11px;font-family:var(--font);font-weight:500;text-align:center;cursor:pointer;color:var(--muted);border:none;background:none;border-bottom:2px solid transparent;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab-content{flex:1;overflow-y:auto;padding:14px;display:none}
+.tab-content.active{display:block}
+
+/* FORMS */
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+input,textarea,select{width:100%;font-family:var(--font);font-size:13px;border:1px solid var(--border);border-radius:7px;padding:8px 10px;background:var(--bg);color:var(--text);transition:border-color .15s}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue);background:white}
+textarea{resize:vertical;min-height:110px;line-height:1.6}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;font-family:var(--font);font-size:13px;font-weight:500;border-radius:7px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);width:100%;margin-bottom:7px;transition:all .15s}
+.btn:hover{background:var(--bg)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:var(--blue);color:white;border-color:var(--blue)}
+.btn-primary:hover:not(:disabled){background:#154e8c}
+.btn-green{background:var(--green);color:white;border-color:var(--green)}
+.btn-green:hover{background:#255a0b}
+.btn-sm{padding:5px 10px;font-size:11px;width:auto;margin-bottom:0;border-radius:5px}
+
+/* INFO */
+.info{border-radius:7px;padding:8px 11px;font-size:11px;line-height:1.7;margin-bottom:10px}
+.info-green{background:var(--green-l);color:var(--green)}
+.info-blue{background:var(--blue-l);color:var(--blue)}
+.info-amber{background:var(--amber-l);color:var(--amber)}
+
+/* LOG */
+.log-box{background:#fafaf8;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-size:11px;font-family:monospace;line-height:1.9;max-height:150px;overflow-y:auto;margin-bottom:10px}
+.lok{color:var(--green)}.lerr{color:var(--red)}.linf{color:var(--blue)}
+
+/* GEOCODE LIST */
+.gc-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.gc-item:last-child{border-bottom:none}
+.gc-end{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px}
+.gc-b{font-size:10px;padding:2px 7px;border-radius:20px;flex-shrink:0;font-weight:500}
+.gc-ok{background:var(--green-l);color:var(--green)}
+.gc-err{background:var(--red-l);color:var(--red)}
+.gc-pend{background:#f0efe9;color:var(--muted)}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}
+.stat{background:var(--bg);border-radius:7px;padding:9px;text-align:center}
+.stat-num{font-size:20px;font-weight:600;letter-spacing:-.5px}
+.stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
+
+/* MOTORISTA CARDS */
+.section-lbl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin:12px 0 8px}
+.mot-card{border:1px solid var(--border);border-radius:9px;margin-bottom:10px;background:white;overflow:hidden}
+.mot-head{display:flex;align-items:center;gap:9px;padding:10px 12px;cursor:pointer;transition:background .1s}
+.mot-head:hover{background:var(--bg)}
+.avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+.mot-info{flex:1}
+.mot-info h4{font-size:13px;font-weight:500}
+.mot-info p{font-size:11px;color:var(--muted);margin-top:1px}
+.progress{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:4px}
+.prog-fill{height:100%;border-radius:2px;transition:width .4s}
+.mot-body{display:none;border-top:1px solid var(--border)}
+.mot-body.open{display:block}
+
+/* STOP ROWS - draggable */
+.stop-row{display:flex;align-items:center;gap:7px;padding:7px 12px;border-bottom:1px solid var(--border);cursor:grab;transition:background .1s;user-select:none}
+.stop-row:last-child{border-bottom:none}
+.stop-row:hover{background:#fafaf8}
+.stop-row.dragging{opacity:.4;background:#f0f0e8}
+.stop-row.drag-over{border-top:2px solid var(--blue)}
+.drag-handle{color:#ccc;font-size:14px;flex-shrink:0;cursor:grab}
+.stop-num{font-size:11px;font-weight:600;width:18px;flex-shrink:0;text-align:center}
+.stop-info{flex:1;min-width:0}
+.stop-cliente{font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stop-end{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+.stop-obs{font-size:10px;color:var(--amber);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mot-select{font-size:11px;padding:3px 6px;border-radius:5px;width:auto;background:var(--bg)}
+
+/* EXPORT */
+.export-row{display:flex;gap:7px;margin-top:12px}
+.export-row .btn{margin-bottom:0}
+
+/* UPLOAD AREA */
+.upload-area{border:2px dashed var(--border);border-radius:9px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px}
+.upload-area:hover,.upload-area.drag{border-color:var(--blue);background:var(--blue-l)}
+.upload-area p{font-size:12px;color:var(--muted);margin-top:6px}
+.upload-area svg{margin:0 auto;display:block}
+
+/* TABS INPUT */
+.input-tabs{display:flex;gap:0;margin-bottom:12px;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.input-tab{flex:1;padding:8px;font-size:12px;font-weight:500;text-align:center;cursor:pointer;background:var(--bg);color:var(--muted);border:none;font-family:var(--font);transition:all .15s}
+.input-tab.active{background:white;color:var(--blue)}
+
+#map{flex:1}
+.leaflet-container{background:#e8ede0}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="s-header">
+      <div class="logo">
+        <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>
+        <h1>Roteirizador Copeli</h1>
+      </div>
+      <div class="logo-sub">OpenStreetMap · Railway · gratuito</div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('entrada',this)">Entregas</button>
+      <button class="tab" onclick="switchTab('geocode',this)">Geocodificação</button>
+      <button class="tab" onclick="switchTab('rotas',this)">Rotas</button>
+    </div>
+
+    <!-- TAB ENTREGAS -->
+    <div id="tab-entrada" class="tab-content active">
+      <div class="fg">
+        <label>Depósito</label>
+        <input id="deposito" value="Osasco, SP"/>
+      </div>
+
+      <div class="input-tabs">
+        <button class="input-tab active" onclick="switchInput('csv',this)">Importar CSV</button>
+        <button class="input-tab" onclick="switchInput('manual',this)">Digitar manualmente</button>
+      </div>
+
+      <div id="input-csv">
+        <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="#aaa"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15h8v2H8zm0-4h8v2H8z"/></svg>
+          <p>Clique ou arraste o CSV aqui</p>
+          <p style="font-size:10px;margin-top:3px">Colunas: Endereco, Numero, Bairro, Cidade, CEP, Motorista, Fantasia2...</p>
+        </div>
+        <input type="file" id="file-input" accept=".csv" style="display:none" onchange="loadCSV(event)"/>
+        <div id="csv-preview"></div>
+      </div>
+
+      <div id="input-manual" style="display:none">
+        <div class="fg">
+          <label>Endereços — um por linha (rua, número, cidade)</label>
+          <textarea id="enderecos-manual" placeholder="Ex:&#10;Av. Paulista 1000, Sao Paulo&#10;Rua da Mooca 800, Sao Paulo"></textarea>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label>Número de motoristas</label>
+        <select id="num-mot">
+          <option value="2">2 motoristas</option>
+          <option value="3" selected>3 motoristas</option>
+          <option value="4">4 motoristas</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary" id="btn-ot" onclick="iniciar()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+        Buscar e otimizar rotas
+      </button>
+      <div class="info info-green">✓ Backend ativo: copeli-roteirizador-production.up.railway.app</div>
+    </div>
+
+    <!-- TAB GEOCODE -->
+    <div id="tab-geocode" class="tab-content">
+      <div class="section-lbl">Status da geocodificação</div>
+      <div class="log-box" id="log-box"><span style="color:var(--muted)">Aguardando...</span></div>
+      <div id="gc-list"></div>
+    </div>
+
+    <!-- TAB ROTAS -->
+    <div id="tab-rotas" class="tab-content">
+      <div id="rotas-empty" style="text-align:center;padding:40px 20px;color:var(--muted)">Otimize as rotas para ver aqui</div>
+      <div id="rotas-result" style="display:none">
+        <div class="stats" id="stats"></div>
+        <div class="info info-amber" style="font-size:11px">☰ Arraste as paradas para reordenar · Troque o motorista pelo seletor</div>
+        <div class="section-lbl">Rotas por motorista</div>
+        <div id="lista-rotas"></div>
+        <div class="export-row">
+          <button class="btn btn-green" onclick="wpp()" style="flex:1">WhatsApp</button>
+          <button class="btn" onclick="maps()" style="flex:1">Ver no Maps ↗</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API = 'https://copeli-roteirizador-production.up.railway.app';
+const CORES = [
+  {bg:'#1a5fa8',mid:'#b8d4f0',dark:'#0e3d6e'},
+  {bg:'#2d6b0e',mid:'#b8dba0',dark:'#1a4008'},
+  {bg:'#b84a1a',mid:'#f0c4a8',dark:'#7a2e0a'},
+  {bg:'#6b3ab8',mid:'#d0b8f0',dark:'#3d1a7a'},
+];
+const DEP_FB = {lat:-23.5329,lng:-46.7919};
+
+let mapa=null, layers=[], rotasGeradas=[], depGlobal=null;
+let csvEntregas=[], inputMode='csv', dragSrc=null;
+
+// ─── MAP ───
+function initMap(){
+  if(mapa) return;
+  mapa = L.map('map').setView([-23.55,-46.65],11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(mapa);
+}
+window.addEventListener('load',initMap);
+
+// ─── TABS ───
+function switchTab(tab,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  el.classList.add('active');
+  if(mapa) setTimeout(()=>mapa.invalidateSize(),80);
+}
+
+function switchInput(mode,el){
+  inputMode=mode;
+  document.querySelectorAll('.input-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('input-csv').style.display=mode==='csv'?'block':'none';
+  document.getElementById('input-manual').style.display=mode==='manual'?'block':'none';
+}
+
+// ─── CSV ───
+function dragOver(e){e.preventDefault();document.getElementById('upload-area').classList.add('drag');}
+function dragLeave(){document.getElementById('upload-area').classList.remove('drag');}
+function dropFile(e){e.preventDefault();dragLeave();const f=e.dataTransfer.files[0];if(f) parseCSV(f);}
+function loadCSV(e){const f=e.target.files[0];if(f) parseCSV(f);}
+
+function parseCSV(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const text=e.target.result;
+    const lines=text.split(/\r?\n/).filter(Boolean);
+    const headers=lines[0].split(',').map(h=>h.replace(/^\uFEFF/,'').trim().replace(/^"|"$/g,''));
+    
+    csvEntregas=[];
+    for(let i=1;i<lines.length;i++){
+      const vals=splitCSVLine(lines[i]);
+      const row={};
+      headers.forEach((h,j)=>row[h]=(vals[j]||'').trim().replace(/^"|"$/g,''));
+      if(row['Endereco']){
+        // Monta endereço limpo para geocodificação
+        let rua = (row['Endereco']||'').trim();
+        const num = (row['Numero']||'').trim();
+        const bairro = (row['Bairro']||'').trim();
+        const cidade = (row['Cidade']||'').trim();
+        const uf = (row['UF']||'SP').trim();
+        // CEP: garante 8 digitos com zero a esquerda
+        let cep = (row['CEP']||'').replace(/\D/g,'');
+        if(cep.length===7) cep='0'+cep;
+        if(cep.length===6) cep='00'+cep;
+        // Expande abreviacoes comuns
+        rua = rua
+          .replace(/^R\s+/i,'Rua ').replace(/^RUA\s+/i,'Rua ')
+          .replace(/^AV\s+/i,'Avenida ').replace(/^AV\.\s+/i,'Avenida ')
+          .replace(/^AL\s+/i,'Alameda ').replace(/^EST\s+/i,'Estrada ')
+          .replace(/^TV\s+/i,'Travessa ').replace(/^PC\s+/i,'Praca ')
+          .toLowerCase().replace(/(^\w|\s\w)/g,c=>c.toUpperCase());
+        // Endereco principal para busca
+        const endBusca = `${rua} ${num}, ${cidade}, ${uf}, Brasil`.replace(/\s+/g,' ').trim();
+        // Endereco display
+        const endDisplay = `${rua}, ${num} - ${bairro}, ${cidade}/${uf}`.replace(/\s+/g,' ').trim();
+        
+        csvEntregas.push({
+          endereco: endBusca,
+          enderecoDisplay: endDisplay,
+          ruaOriginal: rua,
+          numero: num,
+          bairro: bairro,
+          cidade: cidade,
+          uf: uf,
+          cliente: row['Fantasia2']||row['Razão Social']||row['RazÃ£o Social']||'',
+          motorista: (row['Motorista']||'').trim(),
+          obs: row['Observacao']||'',
+          cep: cep,
+          valor: row['Soma de Valor_Pedido']||'',
+          data: row['Data de Entrega']||'',
+        });
+      }
+    }
+    mostrarPreviewCSV();
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+function splitCSVLine(line){
+  const result=[];let cur='';let inQ=false;
+  for(let i=0;i<line.length;i++){
+    if(line[i]==='"'){inQ=!inQ;}
+    else if(line[i]===','&&!inQ){result.push(cur);cur='';}
+    else cur+=line[i];
+  }
+  result.push(cur);
+  return result;
+}
+
+function mostrarPreviewCSV(){
+  const el=document.getElementById('csv-preview');
+  if(!csvEntregas.length){el.innerHTML='';return;}
+  el.innerHTML=`
+    <div class="info info-green" style="margin-top:8px">✓ ${csvEntregas.length} entregas carregadas do CSV</div>
+    <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:7px;margin-top:6px">
+      ${csvEntregas.map((e,i)=>`
+        <div style="padding:6px 10px;border-bottom:1px solid var(--border);font-size:11px;display:flex;gap:8px;align-items:flex-start">
+          <span style="color:var(--muted);min-width:18px">${i+1}</span>
+          <div>
+            <div style="font-weight:500">${e.cliente}</div>
+            <div style="color:var(--muted)">${e.endereco}</div>
+            ${e.motorista?`<div style="color:var(--blue)">${e.motorista}</div>`:''}
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ─── LOG ───
+function log(msg,tipo=''){
+  const el=document.getElementById('log-box');
+  if(el.querySelector('span')) el.innerHTML='';
+  const cls=tipo==='ok'?'lok':tipo==='err'?'lerr':'linf';
+  const sym=tipo==='ok'?'✓':tipo==='err'?'✗':'›';
+  el.innerHTML+=`<div class="${cls}">${sym} ${msg}</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+function gcList(ends,res){
+  document.getElementById('gc-list').innerHTML=ends.map((e,i)=>{
+    const r=res[i];
+    const cls=r===undefined?'gc-pend':r?'gc-ok':'gc-err';
+    const lbl=r===undefined?'aguardando':r?'OK':'não encontrado';
+    return `<div class="gc-item"><span class="gc-end">${e.cliente||e.endereco}</span><span class="gc-b ${cls}">${lbl}</span></div>`;
+  }).join('');
+}
+
+// ─── GEOCODE ───
+async function geocode(q, extra={}){
+  try{
+    let url=`${API}/geocode?q=${encodeURIComponent(q)}`;
+    if(extra.numero) url+=`&numero=${encodeURIComponent(extra.numero)}`;
+    if(extra.bairro) url+=`&bairro=${encodeURIComponent(extra.bairro)}`;
+    if(extra.cidade) url+=`&cidade=${encodeURIComponent(extra.cidade)}`;
+    if(extra.uf) url+=`&uf=${encodeURIComponent(extra.uf)}`;
+    if(extra.cep) url+=`&cep=${encodeURIComponent(extra.cep)}`;
+    const r=await fetch(url);
+    const d=await r.json();
+    if(d.found) return {lat:d.lat,lng:d.lng};
+  }catch(e){}
+  return null;
+}
+
+async function geocodeCEP(cep){
+  if(!cep) return null;
+  const c=cep.replace(/\D/g,'');
+  if(c.length!==8) return null;
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${c}&format=json&limit=1&countrycodes=br`);
+    const d=await r.json();
+    if(d&&d.length>0) return {lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};
+  }catch(e){}
+  return null;
+}
+
+// ─── MAIN ───
+async function iniciar(){
+  let entregas=[];
+
+  if(inputMode==='csv'){
+    if(!csvEntregas.length){alert('Importe um arquivo CSV primeiro.');return;}
+    entregas=csvEntregas;
+  } else {
+    const txt=document.getElementById('enderecos-manual').value.trim();
+    if(!txt){alert('Digite ao menos um endereço.');return;}
+    entregas=txt.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>({endereco:l,cliente:'',motorista:'',obs:'',cep:''}));
+  }
+
+  const numMot=parseInt(document.getElementById('num-mot').value);
+  const depEnd=document.getElementById('deposito').value.trim();
+  const btn=document.getElementById('btn-ot');
+  btn.disabled=true; btn.textContent='Geocodificando...';
+  document.getElementById('log-box').innerHTML='';
+  document.querySelectorAll('.tab')[1].click();
+
+  log('Testando backend...');
+  try{
+    const t=await fetch(`${API}/`);
+    await t.json();
+    log('Backend OK','ok');
+  }catch(e){
+    log('Erro de conexão com o backend!','err');
+    btn.disabled=false;btn.textContent='Buscar e otimizar rotas';return;
+  }
+
+  log('Buscando depósito...');
+  let dep=await geocode(depEnd);
+  if(!dep){dep=DEP_FB;log('Usando coordenada fixa de Osasco','ok');}
+  else log('Depósito localizado','ok');
+  depGlobal=dep;
+
+  const res=new Array(entregas.length).fill(undefined);
+  gcList(entregas,res);
+  const pts=[];
+
+  for(let i=0;i<entregas.length;i++){
+    btn.textContent=`Geocodificando ${i+1}/${entregas.length}...`;
+    const e=entregas[i];
+    log('Buscando: '+(e.cliente||e.endereco).substring(0,45));
+    
+    // Passa campos estruturados para o backend otimizar as tentativas
+    let c=null;
+    const extra={numero:e.numero,bairro:e.bairro,cidade:e.cidade,uf:e.uf,cep:e.cep};
+    c=await geocode(e.ruaOriginal||e.endereco, extra);
+    
+    res[i]=c||false;
+    gcList(entregas,res);
+    if(c){
+      const endShow=e.enderecoDisplay||e.endereco; pts.push({...c,endereco:endShow,cliente:e.cliente,motorista:e.motorista,obs:e.obs,valor:e.valor});
+      log((e.cliente||e.endereco).substring(0,40)+'…','ok');
+    } else {
+      log('Não encontrado: '+(e.cliente||e.endereco).substring(0,35),'err');
+    }
+  }
+
+  log(`Concluído: ${pts.length} OK, ${entregas.length-pts.length} falhou`,pts.length>0?'ok':'err');
+  if(!pts.length){btn.disabled=false;btn.textContent='Buscar e otimizar rotas';return;}
+
+  // Agrupa por motorista se tiver info do CSV, senão usa kmeans
+  const motNomes=[...new Set(pts.map(p=>p.motorista).filter(Boolean))];
+  let grupos;
+
+  if(motNomes.length>=2){
+    // Respeita motoristas do CSV
+    const motMap={};
+    pts.forEach(p=>{
+      const m=p.motorista||'Sem motorista';
+      if(!motMap[m]) motMap[m]=[];
+      motMap[m].push(p);
+    });
+    grupos=Object.entries(motMap).map(([nome,pontos])=>({nome,pontos}));
+  } else {
+    // Clusteriza automaticamente
+    const k=Math.min(numMot,pts.length);
+    const labels=kmeans(pts,k);
+    grupos=Array.from({length:k},(_,gi)=>({nome:null,pontos:pts.filter((_,i)=>labels[i]===gi)}));
+  }
+
+  // Motoristas padrão
+  const NOMES=['Hugo Soares','Bruno','Mayke Wesley','Carlos Mendes'];
+  rotasGeradas=grupos.map((g,gi)=>{
+    const rota=nn(dep,g.pontos);
+    const nome=g.nome||NOMES[gi]||`Motorista ${gi+1}`;
+    return{id:gi,nome,cor:CORES[gi%4],pontos:rota};
+  });
+
+  await renderizarTudo(dep);
+  btn.disabled=false;btn.textContent='Buscar e otimizar rotas';
+  setTimeout(()=>document.querySelectorAll('.tab')[2].click(),300);
+}
+
+async function renderizarTudo(dep){
+  if(!dep) dep=depGlobal;
+  renderizarRotas(rotasGeradas);
+  await renderizarMapa(rotasGeradas,dep);
+}
+
+// ─── RENDER ROTAS ───
+function renderizarRotas(rotas){
+  document.getElementById('rotas-empty').style.display='none';
+  document.getElementById('rotas-result').style.display='block';
+  const total=rotas.reduce((s,r)=>s+r.pontos.length,0);
+  const totalDist=rotas.reduce((s,r)=>s+(r.distKm||0),0);
+
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="stat-num">${total}</div><div class="stat-lbl">Entregas</div></div>
+    <div class="stat"><div class="stat-num">${totalDist||'—'}${totalDist?'km':''}</div><div class="stat-lbl">Total</div></div>
+    <div class="stat"><div class="stat-num">${rotas.length}</div><div class="stat-lbl">Motoristas</div></div>`;
+
+  const el=document.getElementById('lista-rotas');el.innerHTML='';
+  const todosMotoristas=rotas.map(r=>r.nome);
+
+  rotas.forEach((r,ri)=>{
+    if(!r.pontos.length) return;
+    const pct=Math.round(r.pontos.length/total*100);
+    const div=document.createElement('div');div.className='mot-card';
+    div.innerHTML=`
+      <div class="mot-head" onclick="toggleBody(${ri})">
+        <div class="avatar" style="background:${r.cor.mid};color:${r.cor.dark}">${r.nome.split(' ').map(w=>w[0]).join('').substring(0,2)}</div>
+        <div class="mot-info">
+          <h4>${r.nome}</h4>
+          <p>${r.pontos.length} entregas${r.distKm?' · '+r.distKm+'km':''}</p>
+          <div class="progress"><div class="prog-fill" style="width:${pct}%;background:${r.cor.bg}"></div></div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#bbb"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+      </div>
+      <div class="mot-body" id="body-${ri}">
+        <div id="stops-${ri}">
+          ${r.pontos.map((p,si)=>stopHTML(ri,si,p,r.cor.bg,todosMotoristas,r.nome)).join('')}
+        </div>
+      </div>`;
+    el.appendChild(div);
+    setupDrag(ri);
+  });
+}
+
+function stopHTML(ri,si,p,cor,motoristas,motAtual){
+  const opts=motoristas.map(m=>`<option value="${m}" ${m===motAtual?'selected':''}>${m}</option>`).join('');
+  return `<div class="stop-row" draggable="true" data-ri="${ri}" data-si="${si}">
+    <span class="drag-handle">⠿</span>
+    <span class="stop-num" style="color:${cor}">${si+1}</span>
+    <div class="stop-info">
+      <div class="stop-cliente">${p.cliente||'—'}</div>
+      <div class="stop-end">${p.endereco}</div>
+      ${p.obs?`<div class="stop-obs">⚠ ${p.obs.substring(0,60)}</div>`:''}
+    </div>
+    <select class="mot-select" onchange="moverParaMot(${ri},${si},this.value)">${opts}</select>
+  </div>`;
+}
+
+function toggleBody(ri){
+  document.getElementById('body-'+ri).classList.toggle('open');
+}
+
+// ─── DRAG & DROP REORDENAÇÃO ───
+function setupDrag(ri){
+  const container=document.getElementById('stops-'+ri);
+  if(!container) return;
+  container.querySelectorAll('.stop-row').forEach(row=>{
+    row.addEventListener('dragstart',e=>{
+      dragSrc=row;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed='move';
+    });
+    row.addEventListener('dragend',()=>{
+      row.classList.remove('dragging');
+      container.querySelectorAll('.stop-row').forEach(r=>r.classList.remove('drag-over'));
+      // Salva nova ordem
+      const ri2=parseInt(row.dataset.ri);
+      const newOrder=[...container.querySelectorAll('.stop-row')].map(r=>parseInt(r.dataset.si));
+      const novos=newOrder.map(si=>rotasGeradas[ri2].pontos[si]);
+      rotasGeradas[ri2].pontos=novos;
+      // Renumera
+      container.querySelectorAll('.stop-row').forEach((r,i)=>{
+        r.dataset.si=i;
+        const numEl=r.querySelector('.stop-num');
+        if(numEl) numEl.textContent=i+1;
+      });
+      renderizarMapa(rotasGeradas,depGlobal);
+    });
+    row.addEventListener('dragover',e=>{
+      e.preventDefault();
+      if(dragSrc!==row){row.classList.add('drag-over');}
+    });
+    row.addEventListener('dragleave',()=>row.classList.remove('drag-over'));
+    row.addEventListener('drop',e=>{
+      e.preventDefault();
+      if(dragSrc&&dragSrc!==row){
+        const parent=row.parentNode;
+        parent.insertBefore(dragSrc,row);
+      }
+    });
+  });
+}
+
+// ─── MOVER ENTRE MOTORISTAS ───
+function moverParaMot(riOrigem,siOrigem,novoMot){
+  const ponto=rotasGeradas[riOrigem].pontos[siOrigem];
+  const destino=rotasGeradas.find(r=>r.nome===novoMot);
+  if(!destino||destino===rotasGeradas[riOrigem]) return;
+  rotasGeradas[riOrigem].pontos.splice(siOrigem,1);
+  destino.pontos.push(ponto);
+  renderizarRotas(rotasGeradas);
+  renderizarMapa(rotasGeradas,depGlobal);
+  // Reabre os bodies
+  setTimeout(()=>{
+    rotasGeradas.forEach((_,i)=>document.getElementById('body-'+i)?.classList.add('open'));
+  },50);
+}
+
+// ─── MAPA COM OSRM ───
+async function renderizarMapa(rotas,dep){
+  initMap();
+  layers.forEach(l=>mapa.removeLayer(l));layers=[];
+
+  const di=L.divIcon({className:'',html:`<div style="width:26px;height:26px;border-radius:50%;background:#1a1a18;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,.3)">CD</div>`,iconSize:[26,26],iconAnchor:[13,13]});
+  layers.push(L.marker([dep.lat,dep.lng],{icon:di}).addTo(mapa).bindPopup('<b>Copeli — Depósito</b>'));
+
+  const all=[[dep.lat,dep.lng]];
+
+  for(const r of rotas){
+    if(!r.pontos.length) continue;
+    const waypoints=[dep,...r.pontos,dep];
+
+    // Tenta OSRM para trajeto real
+    try{
+      const coords=waypoints.map(p=>`${p.lng},${p.lat}`).join(';');
+      const url=`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+      const resp=await fetch(url);
+      const data=await resp.json();
+      if(data.routes&&data.routes[0]){
+        const geo=data.routes[0].geometry.coordinates.map(([lng,lat])=>[lat,lng]);
+        const km=Math.round(data.routes[0].distance/1000);
+        r.distKm=km;
+        layers.push(L.polyline(geo,{color:r.cor.bg,weight:4,opacity:0.85}).addTo(mapa));
+      } else throw new Error('sem rota');
+    }catch(e){
+      // Fallback linha reta
+      const lls=waypoints.map(p=>[p.lat,p.lng]);
+      layers.push(L.polyline(lls,{color:r.cor.bg,weight:3,opacity:.7,dashArray:'6,4'}).addTo(mapa));
+    }
+
+    all.push(...r.pontos.map(p=>[p.lat,p.lng]));
+    r.pontos.forEach((p,i)=>{
+      const icon=L.divIcon({className:'',html:`<div style="width:24px;height:24px;border-radius:50%;background:${r.cor.bg};border:2.5px solid white;display:flex;align-items:center;justify-content:center;font-size:9px;color:white;font-weight:600;box-shadow:0 2px 5px rgba(0,0,0,.25)">${i+1}</div>`,iconSize:[24,24],iconAnchor:[12,12]});
+      const popup=`<b>${p.cliente||'Entrega '+(i+1)}</b><br><span style="font-size:11px;color:#666">${p.endereco}</span>${p.obs?`<br><span style="font-size:10px;color:#8a5a00">⚠ ${p.obs.substring(0,80)}</span>`:''}`;
+      layers.push(L.marker([p.lat,p.lng],{icon}).addTo(mapa).bindPopup(popup));
+    });
+  }
+
+  if(all.length>1) mapa.fitBounds(all,{padding:[40,40]});
+  // Atualiza km na sidebar
+  renderizarRotas(rotasGeradas);
+  // Reabre bodies abertos
+  setTimeout(()=>{
+    rotasGeradas.forEach((_,i)=>{
+      const b=document.getElementById('body-'+i);
+      if(b) b.classList.add('open');
+    });
+    rotasGeradas.forEach((_,i)=>setupDrag(i));
+  },100);
+}
+
+// ─── ALGORITMOS ───
+function kmeans(pts,k,iter=25){
+  const s=[...pts].sort((a,b)=>a.lng-b.lng);
+  const step=Math.floor(s.length/k);
+  let c=Array.from({length:k},(_,i)=>({...s[Math.min(i*step+Math.floor(step/2),s.length-1)]}));
+  let labels=new Array(pts.length).fill(0);
+  for(let it=0;it<iter;it++){
+    labels=pts.map(p=>{let b=0,bd=Infinity;c.forEach((ci,i)=>{const d=(p.lat-ci.lat)**2+(p.lng-ci.lng)**2;if(d<bd){bd=d;b=i;}});return b;});
+    c=c.map((_,ci)=>{const g=pts.filter((_,pi)=>labels[pi]===ci);if(!g.length)return c[ci];return{lat:g.reduce((s,p)=>s+p.lat,0)/g.length,lng:g.reduce((s,p)=>s+p.lng,0)/g.length};});
+  }
+  return labels;
+}
+
+function nn(dep,pts){
+  const r=[...pts];const rota=[];let cur=dep;
+  while(r.length){let b=0,bd=Infinity;r.forEach((p,i)=>{const d=(p.lat-cur.lat)**2+(p.lng-cur.lng)**2;if(d<bd){bd=d;b=i;}});rota.push(r.splice(b,1)[0]);cur=rota[rota.length-1];}
+  return rota;
+}
+
+// ─── EXPORT ───
+function wpp(){
+  const txt=rotasGeradas.map(r=>`*${r.nome}* — ${r.pontos.length} entregas${r.distKm?' · '+r.distKm+'km':''}\n`+
+    r.pontos.map((p,i)=>`${i+1}. ${p.cliente?p.cliente+' — ':''}${p.endereco}`).join('\n')
+  ).join('\n\n---\n\n');
+  window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
+}
+
+function maps(){
+  if(!rotasGeradas.length||!depGlobal) return;
+  const r=rotasGeradas[0];if(!r.pontos.length) return;
+  const wps=r.pontos.map(p=>`${p.lat},${p.lng}`).join('/');
+  window.open(`https://www.google.com/maps/dir/${depGlobal.lat},${depGlobal.lng}/${wps}/${depGlobal.lat},${depGlobal.lng}`,'_blank');
+}
+</script>
+</body>
+</html>
