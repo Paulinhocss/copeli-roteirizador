@@ -2,10 +2,10 @@
   "name": "copeli-roteirizador-backend",
   "version": "1.0.0",
   "description": "Backend proxy para geocodificacao - Copeli",
-  "main": "servidor.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node servidor.js",
-    "dev": "node servidor.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
