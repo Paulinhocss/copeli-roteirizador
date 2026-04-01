@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Roteirizador Copeli</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --border: #e2e0d8;
+    --text: #1a1a18;
+    --muted: #6b6b62;
+    --blue: #1a5fa8;
+    --blue-light: #e8f0fb;
+    --green: #2d6b0e;
+    --green-light: #e6f2df;
+    --red-light: #fceae8;
+    --red: #993c1d;
+    --accent: #1a5fa8;
+    --font: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+  .app { display: flex; height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar { width: 380px; min-width: 340px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+  .sidebar-header { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); }
+  .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .logo-icon { width: 32px; height: 32px; background: var(--text); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .logo-icon svg { width: 18px; height: 18px; fill: white; }
+  .logo h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo-sub { font-size: 11px; color: var(--muted); margin-left: 42px; }
+  .tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .tab { flex: 1; padding: 11px 8px; font-size: 12px; font-family: var(--font); font-weight: 500; text-align: center; cursor: pointer; color: var(--muted); border: none; background: none; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .tab-content { flex: 1; overflow-y: auto; padding: 16px; display: none; }
+  .tab-content.active { display: block; }
+
+  /* FORMS */
+  .form-group { margin-bottom: 13px; }
+  .form-group label { display: block; font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+  input, textarea, select {
+    width: 100%; font-family: var(--font); font-size: 13px;
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 11px; background: var(--bg); color: var(--text);
+    transition: border-color 0.15s;
+  }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--blue); background: white; }
+  textarea { resize: vertical; min-height: 140px; line-height: 1.6; }
+
+  /* BUTTONS */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 16px; font-family: var(--font); font-size: 13px; font-weight: 500; border-radius: 8px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); width: 100%; margin-bottom: 8px; transition: all 0.15s; }
+  .btn:hover { background: var(--bg); border-color: #ccc; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary { background: var(--blue); color: white; border-color: var(--blue); }
+  .btn-primary:hover:not(:disabled) { background: #154e8c; }
+  .btn-green { background: var(--green); color: white; border-color: var(--green); }
+  .btn-green:hover { background: #255a0b; }
+
+  /* INFO BOXES */
+  .info { border-radius: 8px; padding: 9px 12px; font-size: 11px; line-height: 1.7; margin-bottom: 10px; }
+  .info-green { background: var(--green-light); color: var(--green); }
+  .info-blue { background: var(--blue-light); color: var(--blue); }
+
+  /* STATUS LOG */
+  .log-box { background: #fafaf8; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; font-family: var(--mono); line-height: 1.9; max-height: 170px; overflow-y: auto; margin-bottom: 12px; }
+  .log-ok { color: var(--green); }
+  .log-err { color: var(--red); }
+  .log-inf { color: var(--blue); }
+
+  /* GEOCODE LIST */
+  .gc-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .gc-item:last-child { border-bottom: none; }
+  .gc-end { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); padding-right: 8px; }
+  .gc-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; font-weight: 500; }
+  .gc-ok { background: var(--green-light); color: var(--green); }
+  .gc-err { background: var(--red-light); color: var(--red); }
+  .gc-pend { background: #f0efe9; color: var(--muted); }
+
+  /* STATS */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .stat { background: var(--bg); border-radius: 8px; padding: 10px; text-align: center; }
+  .stat-num { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+  .stat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+
+  /* ROTA CARDS */
+  .section-label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin: 12px 0 8px; }
+  .rota-card { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; overflow: hidden; background: white; }
+  .rota-head { display: flex; align-items: center; gap: 10px; padding: 11px 13px; cursor: pointer; transition: background 0.1s; }
+  .rota-head:hover { background: var(--bg); }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+  .rota-info { flex: 1; }
+  .rota-info h4 { font-size: 13px; font-weight: 500; }
+  .rota-info p { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .progress { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 5px; }
+  .progress-fill { height: 100%; border-radius: 2px; transition: width 0.4s; }
+  .rota-body { padding: 0 13px 10px; display: none; }
+  .rota-body.open { display: block; }
+  .stop { display: flex; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); align-items: flex-start; font-size: 12px; }
+  .stop:last-child { border-bottom: none; }
+  .stop-num { font-weight: 600; min-width: 18px; flex-shrink: 0; }
+
+  /* EXPORT */
+  .export-row { display: flex; gap: 8px; margin-top: 12px; }
+  .export-row .btn { margin-bottom: 0; }
+
+  /* MAP */
+  #map { flex: 1; }
+  .leaflet-container { background: #e8ede0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+        </div>
+        <h1>Roteirizador Copeli</h1>
+      </div>
+      <div class="logo-sub">OpenStreetMap · Railway · gratuito</div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('entrada',this)">Entregas</button>
+      <button class="tab" onclick="switchTab('geocode',this)">Geocodificação</button>
+      <button class="tab" onclick="switchTab('rotas',this)">Rotas</button>
+    </div>
+
+    <div id="tab-entrada" class="tab-content active">
+      <div class="form-group">
+        <label>Depósito</label>
+        <input id="deposito" type="text" value="Osasco, SP"/>
+      </div>
+      <div class="form-group">
+        <label>Endereços de entrega — um por linha</label>
+        <textarea id="enderecos" placeholder="Cole os endereços do Deak aqui..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Motoristas</label>
+        <select id="num-mot">
+          <option value="2">2 motoristas</option>
+          <option value="3" selected>3 motoristas</option>
+          <option value="4">4 motoristas</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="btn-ot" onclick="iniciar()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+        Buscar e otimizar rotas
+      </button>
+      <button class="btn" onclick="exemplo()">Carregar exemplo de teste</button>
+      <div class="info info-green">✓ Backend ativo: copeli-roteirizador-production.up.railway.app</div>
+      <div class="info info-blue">Dica: use rua, número e cidade. Ex: "Av. Paulista 1000, Sao Paulo"</div>
+    </div>
+
+    <div id="tab-geocode" class="tab-content">
+      <div class="section-label">Status da geocodificação</div>
+      <div class="log-box" id="log-box"><span style="color:var(--muted)">Aguardando...</span></div>
+      <div id="gc-list"></div>
+    </div>
+
+    <div id="tab-rotas" class="tab-content">
+      <div id="rotas-empty" style="text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;">
+        Otimize as rotas para ver aqui
+      </div>
+      <div id="rotas-result" style="display:none">
+        <div class="stats" id="stats"></div>
+        <div class="section-label">Rotas por motorista</div>
+        <div id="lista-rotas"></div>
+        <div class="export-row">
+          <button class="btn btn-green" onclick="wpp()" style="flex:1">WhatsApp</button>
+          <button class="btn" onclick="maps()" style="flex:1">Ver no Maps ↗</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API = 'https://copeli-roteirizador-production.up.railway.app';
+const CORES = [
+  {bg:'#1a5fa8',mid:'#b8d4f0',dark:'#0e3d6e'},
+  {bg:'#2d6b0e',mid:'#b8dba0',dark:'#1a4008'},
+  {bg:'#b84a1a',mid:'#f0c4a8',dark:'#7a2e0a'},
+  {bg:'#6b3ab8',mid:'#d0b8f0',dark:'#3d1a7a'},
+];
+const MOTORISTAS = [
+  {nome:'Marcos Ribeiro',sigla:'MR'},
+  {nome:'Joao da Silva',sigla:'JS'},
+  {nome:'Andre Pereira',sigla:'AP'},
+  {nome:'Carlos Mendes',sigla:'CM'},
+];
+const DEP_FB = {lat:-23.5329,lng:-46.7919};
+const EXEMPLO_ENDS = [
+  'Avenida Paulista 1000, Sao Paulo',
+  'Rua da Mooca 800, Sao Paulo',
+  'Avenida Celso Garcia 1500, Sao Paulo',
+  'Rua Vergueiro 2000, Sao Paulo',
+  'Avenida Cruzeiro do Sul 1200, Sao Paulo',
+  'Avenida Rangel Pestana 1000, Sao Paulo',
+  'Avenida Faria Lima 2500, Sao Paulo',
+  'Avenida Santo Amaro 1500, Sao Paulo',
+  'Rua Voluntarios da Patria 800, Sao Paulo',
+  'Avenida do Estado 1000, Sao Paulo',
+];
+
+let mapa=null, layers=[], rotas=[], depGlobal=null;
+
+function initMap(){
+  if(mapa) return;
+  mapa = L.map('map').setView([-23.55,-46.65],11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(mapa);
+}
+window.addEventListener('load', initMap);
+
+function switchTab(tab,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  el.classList.add('active');
+  if(mapa) setTimeout(()=>mapa.invalidateSize(),80);
+}
+
+function exemplo(){ document.getElementById('enderecos').value = EXEMPLO_ENDS.join('\n'); }
+
+function log(msg,tipo=''){
+  const el=document.getElementById('log-box');
+  if(el.querySelector('span')) el.innerHTML='';
+  const cls=tipo==='ok'?'log-ok':tipo==='err'?'log-err':'log-inf';
+  const sym=tipo==='ok'?'✓':tipo==='err'?'✗':'›';
+  el.innerHTML+=`<div class="${cls}">${sym} ${msg}</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+function gcList(ends,res){
+  document.getElementById('gc-list').innerHTML=ends.map((e,i)=>{
+    const r=res[i];
+    const cls=r===undefined?'gc-pend':r?'gc-ok':'gc-err';
+    const lbl=r===undefined?'aguardando':r?'OK':'não encontrado';
+    return `<div class="gc-item"><span class="gc-end">${e}</span><span class="gc-badge ${cls}">${lbl}</span></div>`;
+  }).join('');
+}
+
+async function geocode(q){
+  try{
+    const r=await fetch(`${API}/geocode?q=${encodeURIComponent(q)}`);
+    const d=await r.json();
+    if(d.found) return {lat:d.lat,lng:d.lng};
+  }catch(e){}
+  return null;
+}
+
+async function iniciar(){
+  const txt=document.getElementById('enderecos').value.trim();
+  if(!txt){alert('Cole ao menos um endereço.');return;}
+  const linhas=txt.split('\n').map(l=>l.trim()).filter(Boolean);
+  const k=parseInt(document.getElementById('num-mot').value);
+  const depEnd=document.getElementById('deposito').value.trim();
+  const btn=document.getElementById('btn-ot');
+  btn.disabled=true; btn.textContent='Geocodificando...';
+  document.getElementById('log-box').innerHTML='';
+  document.querySelectorAll('.tab')[1].click();
+
+  log('Conectando ao backend...');
+  try{
+    const t=await fetch(`${API}/`);
+    const d=await t.json();
+    log('Backend OK — '+d.service,'ok');
+  }catch(e){
+    log('Erro de conexão com o backend!','err');
+    btn.disabled=false; btn.textContent='Buscar e otimizar rotas'; return;
+  }
+
+  log('Buscando depósito...');
+  let dep=await geocode(depEnd);
+  if(!dep){dep=DEP_FB;log('Usando coordenada fixa de Osasco','ok');}
+  else log('Depósito localizado','ok');
+  depGlobal=dep;
+
+  const res=new Array(linhas.length).fill(undefined);
+  gcList(linhas,res);
+  const pts=[];
+
+  for(let i=0;i<linhas.length;i++){
+    btn.textContent=`Geocodificando ${i+1}/${linhas.length}...`;
+    log('Buscando: '+linhas[i].substring(0,45));
+    const c=await geocode(linhas[i]);
+    res[i]=c||false;
+    gcList(linhas,res);
+    if(c){pts.push({...c,end:linhas[i]});log(linhas[i].substring(0,40)+'…','ok');}
+    else log('Não encontrado: '+linhas[i].substring(0,35),'err');
+  }
+  log(`Concluído: ${pts.length} OK, ${linhas.length-pts.length} falhou`,pts.length>0?'ok':'err');
+  if(!pts.length){btn.disabled=false;btn.textContent='Buscar e otimizar rotas';return;}
+
+  const labels=kmeans(pts,Math.min(k,pts.length));
+  const grupos=Array.from({length:Math.min(k,pts.length)},()=>[]);
+  pts.forEach((p,i)=>grupos[labels[i]].push(p));
+
+  rotas=grupos.map((g,gi)=>{
+    const rota=nn(dep,g);
+    let km=0;const ps=[dep,...rota,dep];
+    for(let i=0;i<ps.length-1;i++)km+=dist(ps[i],ps[i+1]);
+    return{mot:MOTORISTAS[gi]||{nome:`Motorista ${gi+1}`,sigla:`M${gi+1}`},cor:CORES[gi%4],pontos:rota,km:Math.round(km),min:Math.round(km*3.5)};
+  });
+
+  renderMap(rotas,dep);
+  renderRotas(rotas);
+  btn.disabled=false;btn.textContent='Buscar e otimizar rotas';
+  setTimeout(()=>document.querySelectorAll('.tab')[2].click(),300);
+}
+
+function kmeans(pts,k,iter=25){
+  const s=[...pts].sort((a,b)=>a.lng-b.lng);
+  const step=Math.floor(s.length/k);
+  let c=Array.from({length:k},(_,i)=>({...s[Math.min(i*step+Math.floor(step/2),s.length-1)]}));
+  let labels=new Array(pts.length).fill(0);
+  for(let it=0;it<iter;it++){
+    labels=pts.map(p=>{let b=0,bd=Infinity;c.forEach((ci,i)=>{const d=(p.lat-ci.lat)**2+(p.lng-ci.lng)**2;if(d<bd){bd=d;b=i;}});return b;});
+    c=c.map((_,ci)=>{const g=pts.filter((_,pi)=>labels[pi]===ci);if(!g.length)return c[ci];return{lat:g.reduce((s,p)=>s+p.lat,0)/g.length,lng:g.reduce((s,p)=>s+p.lng,0)/g.length};});
+  }
+  return labels;
+}
+
+function nn(dep,pts){
+  const r=[...pts],rota=[];let cur=dep;
+  while(r.length){let b=0,bd=Infinity;r.forEach((p,i)=>{const d=(p.lat-cur.lat)**2+(p.lng-cur.lng)**2;if(d<bd){bd=d;b=i;}});rota.push(r.splice(b,1)[0]);cur=rota[rota.length-1];}
+  return rota;
+}
+
+function dist(a,b){
+  const R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180;
+  const aa=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa));
+}
+
+function renderMap(rotas,dep){
+  initMap();
+  layers.forEach(l=>mapa.removeLayer(l));layers=[];
+  const di=L.divIcon({className:'',html:`<div style="width:26px;height:26px;border-radius:50%;background:#1a1a18;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:600;font-family:DM Sans,sans-serif;box-shadow:0 2px 6px rgba(0,0,0,0.3)">CD</div>`,iconSize:[26,26],iconAnchor:[13,13]});
+  layers.push(L.marker([dep.lat,dep.lng],{icon:di}).addTo(mapa).bindPopup('<b>Copeli — Depósito</b>'));
+  const all=[[dep.lat,dep.lng]];
+  rotas.forEach(r=>{
+    if(!r.pontos.length)return;
+    const lls=[[dep.lat,dep.lng],...r.pontos.map(p=>[p.lat,p.lng]),[dep.lat,dep.lng]];
+    layers.push(L.polyline(lls,{color:r.cor.bg,weight:3.5,opacity:0.9}).addTo(mapa));
+    all.push(...r.pontos.map(p=>[p.lat,p.lng]));
+    r.pontos.forEach((p,i)=>{
+      const icon=L.divIcon({className:'',html:`<div style="width:24px;height:24px;border-radius:50%;background:${r.cor.bg};border:2.5px solid white;display:flex;align-items:center;justify-content:center;font-size:9px;color:white;font-weight:600;font-family:DM Sans,sans-serif;box-shadow:0 2px 5px rgba(0,0,0,0.25)">${i+1}</div>`,iconSize:[24,24],iconAnchor:[12,12]});
+      layers.push(L.marker([p.lat,p.lng],{icon}).addTo(mapa).bindPopup(`<b>${r.mot.nome}</b><br>${i+1}. ${p.end}`));
+    });
+  });
+  if(all.length>1)mapa.fitBounds(all,{padding:[40,40]});
+}
+
+function renderRotas(rotas){
+  document.getElementById('rotas-empty').style.display='none';
+  document.getElementById('rotas-result').style.display='block';
+  const total=rotas.reduce((s,r)=>s+r.pontos.length,0);
+  const totalKm=rotas.reduce((s,r)=>s+r.km,0);
+  const maxMin=Math.max(...rotas.map(r=>r.min));
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="stat-num">${total}</div><div class="stat-lbl">Entregas</div></div>
+    <div class="stat"><div class="stat-num">${totalKm}km</div><div class="stat-lbl">Total</div></div>
+    <div class="stat"><div class="stat-num">${maxMin}min</div><div class="stat-lbl">Máx. est.</div></div>`;
+  const el=document.getElementById('lista-rotas');el.innerHTML='';
+  rotas.forEach((r,ri)=>{
+    if(!r.pontos.length)return;
+    const pct=Math.round(r.pontos.length/total*100);
+    const div=document.createElement('div');div.className='rota-card';
+    div.innerHTML=`
+      <div class="rota-head" onclick="this.nextElementSibling.classList.toggle('open')">
+        <div class="avatar" style="background:${r.cor.mid};color:${r.cor.dark}">${r.mot.sigla}</div>
+        <div class="rota-info">
+          <h4>${r.mot.nome}</h4>
+          <p>${r.pontos.length} entregas · ${r.km}km · ~${r.min}min</p>
+          <div class="progress"><div class="progress-fill" style="width:${pct}%;background:${r.cor.bg}"></div></div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#999"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+      </div>
+      <div class="rota-body">
+        ${r.pontos.map((p,i)=>`<div class="stop"><span class="stop-num" style="color:${r.cor.bg}">${i+1}</span><span>${p.end}</span></div>`).join('')}
+      </div>`;
+    el.appendChild(div);
+  });
+}
+
+function wpp(){
+  const txt=rotas.map(r=>`*${r.mot.nome}* — ${r.pontos.length} entregas · ${r.km}km\n`+r.pontos.map((p,i)=>`${i+1}. ${p.end}`).join('\n')).join('\n\n---\n\n');
+  window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
+}
+
+function maps(){
+  if(!rotas.length||!depGlobal)return;
+  const r=rotas[0];if(!r.pontos.length)return;
+  const wps=r.pontos.map(p=>`${p.lat},${p.lng}`).join('/');
+  window.open(`https://www.google.com/maps/dir/${depGlobal.lat},${depGlobal.lng}/${wps}/${depGlobal.lat},${depGlobal.lng}`,'_blank');
+}
+</script>
+</body>
+</html>
