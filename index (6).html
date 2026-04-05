@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ROTEIRIZADOR NYM — Zonas</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f3ef;--surface:#fff;--border:#e0ded6;--text:#1a1a18;--muted:#6b6b62;
+  --blue:#1a5fa8;--blue-l:#e8f0fb;--green:#2d6b0e;--green-l:#e6f2df;
+  --red:#993c1d;--red-l:#fceae8;--amber:#8a5a00;--amber-l:#fdf3e0;
+  --font:'DM Sans',sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;font-size:13px}
+.app{display:flex;height:100vh}
+.sidebar{width:400px;min-width:360px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.s-header{padding:16px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:3px}
+.logo-icon{width:30px;height:30px;background:var(--text);border-radius:7px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:16px;height:16px;fill:white}
+.logo h1{font-size:14px;font-weight:600;letter-spacing:-.3px}
+.logo-sub{font-size:10px;color:var(--muted);margin-left:40px}
+.tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{flex:1;padding:10px 6px;font-size:11px;font-family:var(--font);font-weight:500;text-align:center;cursor:pointer;color:var(--muted);border:none;background:none;border-bottom:2px solid transparent;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab-content{flex:1;overflow-y:auto;padding:14px;display:none}
+.tab-content.active{display:block}
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+input,textarea,select{width:100%;font-family:var(--font);font-size:13px;border:1px solid var(--border);border-radius:7px;padding:8px 10px;background:var(--bg);color:var(--text);transition:border-color .15s}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue);background:white}
+textarea{resize:vertical;min-height:100px;line-height:1.6}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;font-family:var(--font);font-size:13px;font-weight:500;border-radius:7px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);width:100%;margin-bottom:7px;transition:all .15s}
+.btn:hover{background:var(--bg)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:var(--blue);color:white;border-color:var(--blue)}
+.btn-primary:hover:not(:disabled){background:#154e8c}
+.btn-green{background:var(--green);color:white;border-color:var(--green)}
+.btn-green:hover{background:#255a0b}
+.info{border-radius:7px;padding:8px 11px;font-size:11px;line-height:1.7;margin-bottom:10px}
+.info-green{background:var(--green-l);color:var(--green)}
+.info-blue{background:var(--blue-l);color:var(--blue)}
+.info-amber{background:var(--amber-l);color:var(--amber)}
+.log-box{background:#fafaf8;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-size:11px;font-family:monospace;line-height:1.9;max-height:130px;overflow-y:auto;margin-bottom:10px}
+.lok{color:var(--green)}.lerr{color:var(--red)}.linf{color:var(--blue)}
+.gc-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.gc-item:last-child{border-bottom:none}
+.gc-end{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px}
+.gc-b{font-size:10px;padding:2px 7px;border-radius:20px;flex-shrink:0;font-weight:500}
+.gc-ok{background:var(--green-l);color:var(--green)}
+.gc-err{background:var(--red-l);color:var(--red)}
+.gc-pend{background:#f0efe9;color:var(--muted)}
+.section-lbl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin:12px 0 8px}
+.zona-card{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;background:white;overflow:hidden}
+.zona-head{display:flex;align-items:center;gap:10px;padding:11px 13px}
+.zona-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.zona-info{flex:1}
+.zona-info h4{font-size:13px;font-weight:500}
+.zona-info p{font-size:11px;color:var(--muted);margin-top:1px}
+.zona-select{font-size:12px;padding:6px 9px;border-radius:6px;width:auto;background:var(--bg);border:1px solid var(--border)}
+.zona-body{border-top:1px solid var(--border);max-height:180px;overflow-y:auto}
+.stop-item{display:flex;gap:8px;padding:6px 13px;border-bottom:1px solid var(--border);font-size:12px;align-items:flex-start}
+.stop-item:last-child{border-bottom:none}
+.stop-num{font-weight:600;min-width:18px;flex-shrink:0;padding-top:1px}
+.stop-info-c{flex:1;min-width:0}
+.stop-cliente{font-weight:500;line-height:1.4}
+.stop-end{color:var(--muted);font-size:11px;margin-top:2px;line-height:1.4}
+.stop-obs{color:var(--amber);font-size:10px;margin-top:2px;line-height:1.4}
+.progress{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:4px}
+.prog-fill{height:100%;border-radius:2px}
+.upload-area{border:2px dashed var(--border);border-radius:9px;padding:18px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px}
+.upload-area:hover,.upload-area.drag{border-color:var(--blue);background:var(--blue-l)}
+.input-tabs{display:flex;gap:0;margin-bottom:12px;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.input-tab{flex:1;padding:8px;font-size:12px;font-weight:500;text-align:center;cursor:pointer;background:var(--bg);color:var(--muted);border:none;font-family:var(--font);transition:all .15s}
+.input-tab.active{background:white;color:var(--blue)}
+.export-row{display:flex;gap:7px;margin-top:12px}
+.export-row .btn{margin-bottom:0}
+#map{flex:1}
+.leaflet-container{background:#e8ede0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}
+.stat{background:var(--bg);border-radius:7px;padding:9px;text-align:center}
+.stat-num{font-size:20px;font-weight:600;letter-spacing:-.5px}
+.stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
+</style>
+</head>
+<body>
+<div id="login-screen" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999">
+  <div style="background:white;border-radius:14px;padding:32px 28px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,.12)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
+      <div style="width:34px;height:34px;background:#1a1a18;border-radius:8px;display:flex;align-items:center;justify-content:center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:600;font-size:14px">ROTEIRIZADOR NYM</div>
+        <div style="font-size:11px;color:var(--muted)">Acesso restrito</div>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Usuário</label>
+      <input id="login-user" type="text" placeholder="Digite seu usuário" onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()"/>
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Senha</label>
+      <input id="login-pass" type="password" placeholder="Digite sua senha" onkeydown="if(event.key==='Enter')fazerLogin()"/>
+    </div>
+    <div id="login-erro" style="display:none;background:var(--red-l);color:var(--red);font-size:11px;padding:7px 10px;border-radius:7px;margin-bottom:12px">Usuário ou senha incorretos.</div>
+    <button onclick="fazerLogin()" style="width:100%;padding:10px;background:#1a5fa8;color:white;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--font)">Entrar</button>
+  </div>
+</div>
+<div class="app" id="app-main" style="display:none">
+  <div class="sidebar">
+    <div class="s-header">
+      <div class="logo">
+        <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>
+        <h1>ROTEIRIZADOR NYM</h1>
+      </div>
+      <div class="logo-sub">Distribuição por zonas geográficas</div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('entrada',this)">Entregas</button>
+      <button class="tab" onclick="switchTab('geocode',this)">Geocodificação</button>
+      <button class="tab" onclick="switchTab('zonas',this)">Zonas</button>
+    </div>
+    <div id="tab-entrada" class="tab-content active">
+      <div class="fg">
+        <label>Depósito</label>
+        <input id="deposito" value="Av. Yara, 75 - Vila Yara, Osasco - SP, 06028-110"/>
+      </div>
+      <div class="input-tabs">
+        <button class="input-tab active" onclick="switchInput('xlsx',this)">Importar Excel/CSV</button>
+        <button class="input-tab" onclick="switchInput('manual',this)">Digitar</button>
+      </div>
+      <div id="input-xlsx">
+        <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="#aaa" style="display:block;margin:0 auto 6px"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+          <p style="font-size:12px;color:var(--muted)">Clique ou arraste o arquivo aqui</p>
+          <p style="font-size:10px;color:var(--muted);margin-top:3px">Aceita .xlsx ou .csv</p>
+        </div>
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="loadFile(event)"/>
+        <div id="csv-preview"></div>
+        <button class="btn" id="btn-add-entrega" onclick="toggleFormAdd()" style="display:none;margin-top:6px;border-color:var(--blue);color:var(--blue)">+ Adicionar entrega</button>
+        <div id="form-add" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:12px;margin-top:8px">
+          <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Nova entrega</div>
+          <div class="fg" style="margin-bottom:8px"><label>Cliente</label><input id="add-cliente" type="text" placeholder="Nome do cliente"/></div>
+          <div class="fg" style="margin-bottom:8px"><label>Endereço completo</label><input id="add-endereco" type="text" placeholder="Rua, Número, Cidade, SP"/></div>
+          <div class="fg" style="margin-bottom:10px"><label>Observação (opcional)</label><input id="add-obs" type="text" placeholder="Ex: Ligar antes de entregar"/></div>
+          <div style="display:flex;gap:7px">
+            <button class="btn btn-primary" onclick="adicionarEntrega()" style="flex:1;margin-bottom:0;padding:8px">Adicionar</button>
+            <button class="btn" onclick="toggleFormAdd()" style="width:auto;margin-bottom:0;padding:8px 14px">Cancelar</button>
+          </div>
+        </div>
+      </div>
+      <div id="input-manual" style="display:none">
+        <div class="fg"><label>Endereços — um por linha</label><textarea id="enderecos-manual" placeholder="Rua Nome 123, Cidade, SP"></textarea></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:7px">
+        <button class="btn btn-primary" id="btn-ot" onclick="iniciar()" style="flex:1;margin-bottom:0">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+          Geocodificar e agrupar
+        </button>
+        <button class="btn" id="btn-cancelar" onclick="cancelar()" style="display:none;width:auto;padding:9px 14px;margin-bottom:0;color:var(--red);border-color:var(--red)">✕</button>
+      </div>
+      <button class="btn" onclick="limpar()" style="color:var(--red);border-color:var(--red);margin-bottom:7px">✕ Limpar</button>
+      <div class="info info-green" style="font-size:10px">✓ Backend: copeli-roteirizador-production.up.railway.app</div>
+    </div>
+    <div id="tab-geocode" class="tab-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div class="section-lbl" style="margin:0">Status</div>
+        <div id="timer-box" style="display:none;font-size:12px;font-weight:600;color:var(--blue);font-family:monospace;background:var(--blue-l);padding:3px 10px;border-radius:20px">⏱ 0s</div>
+      </div>
+      <div class="log-box" id="log-box"><span style="color:var(--muted)">Aguardando...</span></div>
+      <div id="gc-list"></div>
+    </div>
+    <div id="tab-zonas" class="tab-content">
+      <div id="zonas-empty" style="text-align:center;padding:40px 20px;color:var(--muted)">Geocodifique as entregas para ver as zonas</div>
+      <div id="zonas-result" style="display:none">
+        <div class="stats" id="stats"></div>
+        <div class="info info-amber">Selecione o motorista de cada zona e clique em otimizar</div>
+        <button class="btn" onclick="toggleNovaEntregaZona()" style="margin-bottom:8px;border-color:var(--blue);color:var(--blue)">+ Adicionar entrega</button>
+        <div id="form-nova-zona" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:12px;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Nova entrega</div>
+          <div class="fg" style="margin-bottom:7px"><label>Cliente</label><input id="nz-cliente" placeholder="Nome do cliente"/></div>
+          <div class="fg" style="margin-bottom:7px"><label>CEP</label><input id="nz-cep" placeholder="00000-000" maxlength="9"/></div>
+          <div class="fg" style="margin-bottom:7px"><label>Endereço</label><input id="nz-end" placeholder="Rua, Número"/></div>
+          <div class="fg" style="margin-bottom:7px"><label>Observação</label><input id="nz-obs" placeholder="Opcional"/></div>
+          <div class="fg" style="margin-bottom:7px"><label>Motorista (opcional)</label>
+            <select id="nz-motorista">
+              <option value="">— Sem motorista —</option>
+              <option>Daniel</option><option>Hugo</option><option>Bruno</option><option>Eliezer</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:7px">
+            <button class="btn btn-primary" onclick="adicionarEntregaZona()" style="flex:1;margin-bottom:0">Geocodificar e adicionar</button>
+            <button class="btn" onclick="toggleNovaEntregaZona()" style="width:auto;margin-bottom:0;padding:9px 14px">Cancelar</button>
+          </div>
+        </div>
+        <div class="section-lbl">Zonas geográficas</div>
+        <div id="lista-zonas"></div>
+        <button class="btn btn-primary" id="btn-otimizar" onclick="otimizarRotas()" style="margin-top:4px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13.49 5.48c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm-3.6 13.9l1-4.4 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1l-5.2 2.2v4.7h2v-3.4l1.8-.7-1.6 8.1-4.9-1-.4 2 7 1.4z"/></svg>
+          Otimizar rotas
+        </button>
+        <div class="export-row">
+          <button class="btn btn-green" onclick="wpp()" style="flex:1">WhatsApp</button>
+          <button class="btn" onclick="maps()" style="flex:1">Ver no Maps ↗</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:7px">
+          <div id="badge-reagendadas" style="display:none;flex:1;background:var(--amber-l);color:var(--amber);font-size:11px;padding:5px 10px;border-radius:7px;text-align:center"></div>
+          <button id="btn-export-reagendadas" onclick="exportarReagendadas()" style="display:none;font-size:11px;padding:5px 10px;border:1px solid var(--amber);color:var(--amber);background:var(--amber-l);border-radius:7px;cursor:pointer;font-family:var(--font);white-space:nowrap">📥 Exportar</button>
+        </div>
+        <button class="btn" onclick="exportarExcel()" style="margin-top:7px;border-color:#2d6b0e;color:#2d6b0e">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM8 17h8v2H8v-2zm0-4h8v2H8v-2zm0-4h5v2H8V9z"/></svg>
+          Exportar Excel
+        </button>
+      </div>
+    </div>
+  </div>
+  <div id="map"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ─── LOGIN ───
+const USUARIOS={
+  'copeli':'Logistica2024',
+  'paulinho':'copeli@2024',
+  'logistica':'rota@2024',
+};
+
+function fazerLogin(){
+  const user=document.getElementById('login-user').value.trim().toLowerCase();
+  const pass=document.getElementById('login-pass').value;
+  const erro=document.getElementById('login-erro');
+  if(USUARIOS[user]&&USUARIOS[user]===pass){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app-main').style.display='flex';
+    sessionStorage.setItem('copeli-auth','ok');
+  } else {
+    erro.style.display='block';
+    document.getElementById('login-pass').value='';
+    document.getElementById('login-pass').focus();
+  }
+}
+
+// Verifica se já autenticado nessa sessão
+window.addEventListener('load',()=>{
+  if(sessionStorage.getItem('copeli-auth')==='ok'){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app-main').style.display='flex';
+  } else {
+    setTimeout(()=>document.getElementById('login-user').focus(),100);
+  }
+});
+
+const API = 'https://copeli-roteirizador-production.up.railway.app';
+
+const ZONAS = [
+  {id:'oeste',    nome:'Zona Oeste',       lat:-23.5329, lng:-46.7500, cor:'#e67e00', corL:'#fff3e0'},
+  {id:'norte',    nome:'Zona Norte',       lat:-23.4800, lng:-46.6200, cor:'#1a5fa8', corL:'#e8f0fb'},
+  {id:'leste',    nome:'Zona Leste',       lat:-23.5450, lng:-46.4800, cor:'#c0392b', corL:'#fceae8'},
+  {id:'centro',   nome:'Centro',           lat:-23.5489, lng:-46.6388, cor:'#6b3ab8', corL:'#eeedfe'},
+  {id:'sul',      nome:'Zona Sul',         lat:-23.6300, lng:-46.6600, cor:'#27ae60', corL:'#e6f2df'},
+  {id:'abc',      nome:'ABC',              lat:-23.6600, lng:-46.5100, cor:'#d35400', corL:'#fceae8'},
+  {id:'santista', nome:'Baixada Santista', lat:-23.9500, lng:-46.3300, cor:'#2980b9', corL:'#e8f0fb'},
+  {id:'int_oeste',nome:'Interior Oeste',   lat:-23.2000, lng:-46.9800, cor:'#8e44ad', corL:'#f5e0ff'},
+  {id:'int_leste',nome:'Interior Leste',   lat:-23.5200, lng:-46.1800, cor:'#16a085', corL:'#e0f5f0'},
+];
+
+const MOTORISTAS = ['\u2014 Selecionar \u2014','Daniel','Hugo','Bruno','Eliezer','+ Outro...'];
+
+const CORES_MOT=['#1a5fa8','#e67e00','#c0392b','#27ae60','#8e44ad','#16a085','#d35400','#2980b9'];
+const _motCores={};
+function getCorMot(nome){
+  if(!_motCores[nome]){const idx=Object.keys(_motCores).length%CORES_MOT.length;_motCores[nome]=CORES_MOT[idx];}
+  return _motCores[nome];
+}
+
+let mapa=null, layers=[], depGlobal=null, cancelado=false, rotasJaOtimizadas={}, entregasReagendadas=[];
+let timerInterval=null, timerInicio=null;
+
+function iniciarTimer(){
+  timerInicio=Date.now();
+  const el=document.getElementById('timer-box');
+  el.style.display='block';
+  timerInterval=setInterval(()=>{
+    const seg=Math.round((Date.now()-timerInicio)/1000);
+    const min=Math.floor(seg/60);const s=seg%60;
+    el.textContent=`\u23f1 ${min>0?min+'m ':''} ${s}s`;
+  },1000);
+}
+
+function pararTimer(){
+  if(timerInterval) clearInterval(timerInterval);
+  const el=document.getElementById('timer-box');
+  if(timerInicio){
+    const seg=Math.round((Date.now()-timerInicio)/1000);
+    const min=Math.floor(seg/60);const s=seg%60;
+    el.textContent=`\u2713 ${min>0?min+'m ':''} ${s}s`;
+    el.style.background='var(--green-l)';el.style.color='var(--green)';
+  }
+}
+
+let entregas=[], zonasComEntregas=[];
+
+function initMap(){
+  if(mapa) return;
+  mapa=L.map('map').setView([-23.55,-46.65],10);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'\u00a9 OpenStreetMap',maxZoom:19}).addTo(mapa);
+}
+window.addEventListener('load',initMap);
+
+function switchTab(tab,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  el.classList.add('active');
+  if(mapa) setTimeout(()=>mapa.invalidateSize(),80);
+}
+
+function switchInput(mode,el){
+  document.querySelectorAll('.input-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('input-xlsx').style.display=mode==='xlsx'?'block':'none';
+  document.getElementById('input-manual').style.display=mode==='manual'?'block':'none';
+}
+
+function dragOver(e){e.preventDefault();document.getElementById('upload-area').classList.add('drag');}
+function dragLeave(){document.getElementById('upload-area').classList.remove('drag');}
+function dropFile(e){e.preventDefault();dragLeave();const f=e.dataTransfer.files[0];if(f)processarArquivo(f);}
+function loadFile(e){const f=e.target.files[0];if(f)processarArquivo(f);}
+
+function toggleFormAdd(){
+  const form=document.getElementById('form-add');
+  const visivel=form.style.display!=='none';
+  form.style.display=visivel?'none':'block';
+  if(!visivel){
+    document.getElementById('add-cliente').value='';
+    document.getElementById('add-endereco').value='';
+    document.getElementById('add-obs').value='';
+    setTimeout(()=>document.getElementById('add-cliente').focus(),50);
+  }
+}
+
+function adicionarEntrega(){
+  const cliente=document.getElementById('add-cliente').value.trim();
+  const end=document.getElementById('add-endereco').value.trim();
+  const obs=document.getElementById('add-obs').value.trim();
+  if(!end){alert('Informe o endere\u00e7o.');return;}
+  entregas.push({endereco:end+', Brasil',enderecoDisplay:end,ruaOriginal:end.split(',')[0]||end,
+    numero:'',bairro:'',cidade:'',uf:'SP',cep:'',cliente,obs});
+  toggleFormAdd();
+  mostrarPreview();
+  const info=document.createElement('div');
+  info.className='info info-amber';info.style.marginTop='8px';
+  info.textContent='\u26a0 Entrega adicionada \u2014 clique em "Geocodificar e agrupar" para incluir no mapa.';
+  const preview=document.getElementById('csv-preview');
+  const old=preview.querySelector('.info-amber');if(old) old.remove();
+  preview.appendChild(info);
+}
+
+function processarArquivo(file){
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(ext==='xlsx'||ext==='xls') lerXLSX(file);else lerCSV(file);
+}
+
+function montarEntrada(row){
+  let ruaBruta=(row['ENDENT']||'').toString().trim();
+  const partes=ruaBruta.split(' ');
+  const prefMap={'R':'Rua','RUA':'Rua','AV':'Avenida','AVENIDA':'Avenida','AL':'Alameda','ALAMEDA':'Alameda',
+    'EST':'Estrada','ESTRADA':'Estrada','TV':'Travessa','TRAVESSA':'Travessa','PC':'Praca','PCA':'Praca','ROD':'Rodovia','RODOVIA':'Rodovia'};
+  if(partes.length>0&&prefMap[partes[0].toUpperCase()]) partes[0]=prefMap[partes[0].toUpperCase()];
+  ruaBruta=partes.join(' ');
+  const bairro=(row['BAIRRO']||'').toString().trim();
+  const nomeRua=ruaBruta?ruaBruta.toLowerCase().split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' '):bairro;
+  const num=(row['NumEnt']||'').toString().trim();
+  const cidade=(row['CIDADE']||'').toString().trim();
+  const uf='SP';
+  let cep=(row['CEP']||'').toString().replace(/\D/g,'');
+  if(cep.length===7) cep='0'+cep;if(cep.length===6) cep='00'+cep;
+  const endBusca=(nomeRua+(num?' '+num:'')+', '+bairro+', '+cidade+', '+uf+', Brasil').replace(/\s+/g,' ').trim();
+  const endDisplay=(nomeRua+(num?', '+num:'')+' - '+bairro+', '+cidade+'/'+uf).replace(/\s+/g,' ').trim();
+  return {
+    endereco:endBusca,enderecoDisplay:endDisplay,ruaOriginal:nomeRua,numero:num,bairro,cidade,uf,cep,
+    pedido:(row['PEDIDO']||'').toString(),
+    motoristaSugerido:(row['Motorista']||row['MOTORISTA']||'').toString().trim(),
+    cliente:(row['CLIENTE']||row['Fantasia2']||'').toString(),
+    obs:(row['Observacoes']||row['Observacao']||'').toString(),
+    valor:(row['VALOR']||'').toString(),
+    vendedor:(row['VENDEDOR']||'').toString(),
+    dataEntrega:(()=>{
+      const d=row['DataEntrega']||row['dataentrega']||'';
+      if(!d) return '';
+      let dt=null;
+      if(typeof d==='number'||(typeof d==='string'&&!isNaN(d)&&!d.includes('-')&&!d.includes('/')&&String(d).trim().length<=5)){
+        dt=new Date(Date.UTC(1900,0,1)+(parseInt(d)-2)*86400000);
+      } else if(typeof d==='string'&&d.includes('-')){
+        dt=new Date(d.substring(0,10)+'T00:00:00');
+      } else if(d instanceof Date||typeof d==='object'){
+        dt=new Date(d);
+      }
+      if(dt&&!isNaN(dt)){
+        return String(dt.getUTCDate()).padStart(2,'0')+'/'+String(dt.getUTCMonth()+1).padStart(2,'0')+'/'+dt.getUTCFullYear();
+      }
+      return d.toString().substring(0,10);
+    })(),
+    prioridade:(row['Prioridade']||'').toString(),
+  };
+}
+
+function lerXLSX(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+      const rawEntregas=rows.filter(r=>r['CLIENTE']||r['ENDENT']||r['Endereco']||r['Fantasia2']).map(montarEntrada);
+      const pedidosVistos=new Set();
+      entregas=rawEntregas.filter(e=>{if(!e.pedido) return true;if(pedidosVistos.has(e.pedido)) return false;pedidosVistos.add(e.pedido);return true;});
+      window._dupRemovidasCount=rawEntregas.length-entregas.length;
+      mostrarPreview();
+    }catch(err){alert('Erro ao ler o arquivo Excel: '+err.message);}
+  };
+  reader.onerror=()=>alert('Erro ao carregar o arquivo.');
+  reader.readAsArrayBuffer(file);
+}
+
+function lerCSV(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const lines=e.target.result.split(/\r?\n/).filter(Boolean);
+    const headers=lines[0].split(',').map(h=>h.replace(/^\uFEFF/,'').trim().replace(/^"|"$/g,''));
+    entregas=[];
+    for(let i=1;i<lines.length;i++){
+      const vals=splitCSV(lines[i]);const row={};
+      headers.forEach((h,j)=>row[h]=(vals[j]||'').trim().replace(/^"|"$/g,''));
+      if(row['CLIENTE']||row['ENDENT']||row['Endereco']||row['Fantasia2']) entregas.push(montarEntrada(row));
+    }
+    const antesCSV=entregas.length;const pedidosVistosCSV=new Set();
+    entregas=entregas.filter(e=>{if(!e.pedido) return true;if(pedidosVistosCSV.has(e.pedido)) return false;pedidosVistosCSV.add(e.pedido);return true;});
+    window._dupRemovidasCount=antesCSV-entregas.length;
+    mostrarPreview();
+  };
+  reader.onerror=()=>alert('Erro ao carregar o arquivo CSV.');
+  reader.readAsText(file,'UTF-8');
+}
+
+function splitCSV(line){
+  const r=[];let c='';let q=false;
+  for(let i=0;i<line.length;i++){if(line[i]==='"'){q=!q;}else if(line[i]===','&&!q){r.push(c);c='';}else c+=line[i];}
+  r.push(c);return r;
+}
+
+function mostrarPreview(){
+  const el=document.getElementById('csv-preview');
+  document.getElementById('btn-add-entrega').style.display=entregas.length?'flex':'none';
+  if(!entregas.length){el.innerHTML='';return;}
+  el.innerHTML=`<div class="info info-green" style="margin-top:8px">\u2713 ${entregas.length} entregas${window._dupRemovidasCount>0?` <span style="background:var(--amber-l);color:var(--amber);padding:1px 6px;border-radius:10px;font-size:10px">${window._dupRemovidasCount} duplicata${window._dupRemovidasCount>1?'s':''} removida${window._dupRemovidasCount>1?'s':''}</span>`:''}</div>
+    <div style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:7px;margin-top:6px">
+      ${entregas.map((e,i)=>`<div style="padding:5px 10px;border-bottom:1px solid var(--border);font-size:11px">
+        <span style="color:var(--muted);margin-right:6px">${i+1}</span>
+        ${e.pedido?`<span style="color:var(--blue);font-size:10px;margin-right:4px">#${e.pedido}</span>`:''}
+        <strong>${e.cliente||'\u2014'}</strong>
+        <span style="color:var(--muted);display:block;margin-left:16px">${e.enderecoDisplay}</span>
+      </div>`).join('')}
+    </div>`;
+}
+
+function log(msg,tipo=''){
+  const el=document.getElementById('log-box');
+  if(el.querySelector('span')) el.innerHTML='';
+  const cls=tipo==='ok'?'lok':tipo==='err'?'lerr':'linf';
+  const sym=tipo==='ok'?'\u2713':tipo==='err'?'\u2717':'\u203a';
+  el.innerHTML+=`<div class="${cls}">${sym} ${msg}</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+function gcList(ends,res){
+  document.getElementById('gc-list').innerHTML=ends.map((e,i)=>{
+    const r=res[i];const cls=r===undefined?'gc-pend':r?'gc-ok':'gc-err';
+    const lbl=r===undefined?'aguardando':r?'OK':'n\u00e3o encontrado';
+    return `<div class="gc-item"><span class="gc-end">${e.cliente||e.endereco}</span><span class="gc-b ${cls}">${lbl}</span></div>`;
+  }).join('');
+}
+
+async function geocode(q,extra={}){
+  try{
+    let url=`${API}/geocode?q=${encodeURIComponent(q)}`;
+    if(extra.numero) url+=`&numero=${encodeURIComponent(extra.numero)}`;
+    if(extra.bairro) url+=`&bairro=${encodeURIComponent(extra.bairro)}`;
+    if(extra.cidade) url+=`&cidade=${encodeURIComponent(extra.cidade)}`;
+    if(extra.uf)     url+=`&uf=${encodeURIComponent(extra.uf)}`;
+    if(extra.cep)    url+=`&cep=${encodeURIComponent(extra.cep)}`;
+    const r=await fetch(url);const d=await r.json();
+    if(d.found) return {lat:d.lat,lng:d.lng};
+  }catch(e){}
+  return null;
+}
+
+function cancelar(){
+  cancelado=true;pararTimer();
+  document.getElementById('btn-cancelar').style.display='none';
+  document.getElementById('btn-ot').disabled=false;
+  document.getElementById('btn-ot').textContent='Geocodificar e agrupar';
+}
+
+function limpar(){
+  entregas=[];zonasComEntregas=[];rotasJaOtimizadas={};entregasReagendadas=[];
+  document.getElementById('csv-preview').innerHTML='';
+  document.getElementById('file-input').value='';
+  document.getElementById('enderecos-manual').value='';
+  document.getElementById('log-box').innerHTML='<span style="color:var(--muted)">Aguardando...</span>';
+  document.getElementById('gc-list').innerHTML='';
+  document.getElementById('zonas-empty').style.display='block';
+  document.getElementById('zonas-result').style.display='none';
+  if(mapa){layers.forEach(l=>mapa.removeLayer(l));layers=[];mapa.setView([-23.55,-46.65],10);}
+  document.querySelectorAll('.tab')[0].click();
+}
+
+const CIDADE_ZONA={
+  'SANTOS':'santista','SAO VICENTE':'santista','GUARUJA':'santista','PRAIA GRANDE':'santista',
+  'CUBATAO':'santista','ITANHAEM':'santista','MONGAGUA':'santista','BERTIOGA':'santista','PERUIBE':'santista',
+  'SANTO ANDRE':'abc','SAO BERNARDO DO CAMPO':'abc','SAO CAETANO DO SUL':'abc',
+  'DIADEMA':'abc','MAUA':'abc','RIBEIRAO PIRES':'abc','RIO GRANDE DA SERRA':'abc',
+  'JUNDIAI':'int_oeste','ITU':'int_oeste','SOROCABA':'int_oeste','CAMPINAS':'int_oeste',
+  'INDAIATUBA':'int_oeste','SALTO':'int_oeste','VOTORANTIM':'int_oeste','BOTUCATU':'int_oeste','PIRACICABA':'int_oeste',
+  'MOGI DAS CRUZES':'int_leste','SUZANO':'int_leste','FERRAZ DE VASCONCELOS':'int_leste',
+  'ITAQUAQUECETUBA':'int_leste','POA':'int_leste',
+  'GUARULHOS':'norte',
+  'OSASCO':'oeste','BARUERI':'oeste','CARAPICUIBA':'oeste','COTIA':'oeste',
+  'ITAPEVI':'oeste','JANDIRA':'oeste','SANTANA DE PARNAIBA':'oeste',
+  'TABOAO DA SERRA':'sul','EMBU DAS ARTES':'sul','ITAPECERICA DA SERRA':'sul',
+};
+
+function zonaProxima(lat,lng,cidade){
+  if(cidade){
+    const cn=cidade.toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const zi=CIDADE_ZONA[cn];if(zi){const z=ZONAS.find(z=>z.id===zi);if(z) return z;}
+  }
+  let best=ZONAS[0],bestD=Infinity;
+  ZONAS.forEach(z=>{const d=(lat-z.lat)**2+(lng-z.lng)**2;if(d<bestD){bestD=d;best=z;}});
+  return best;
+}
+
+async function iniciar(){
+  let lista=entregas;
+  if(!lista.length){
+    const txt=document.getElementById('enderecos-manual').value.trim();
+    if(!txt){alert('Carregue um arquivo ou digite endere\u00e7os.');return;}
+    lista=txt.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+      const cepM=l.match(/\b(\d{5}-?\d{3})\b/);const cep=cepM?cepM[1].replace('-',''):'';
+      const cidadeM=l.match(/,\s*([A-Z\s]+)(?:\s*-\s*SP)?(?:,\s*\d)?\s*$/i);const cidade=cidadeM?cidadeM[1].trim():'';
+      return {endereco:l,enderecoDisplay:l,ruaOriginal:l.split(',')[0].trim(),numero:'',bairro:'',cidade:cidade||'SAO PAULO',uf:'SP',cep,cliente:'',obs:''};
+    });
+  }
+  const depEnd=document.getElementById('deposito').value.trim();
+  const btn=document.getElementById('btn-ot');
+  cancelado=false;btn.disabled=true;btn.textContent='Geocodificando...';
+  document.getElementById('btn-cancelar').style.display='block';
+  document.getElementById('log-box').innerHTML='';
+  const timerEl=document.getElementById('timer-box');
+  timerEl.style.background='var(--blue-l)';timerEl.style.color='var(--blue)';
+  iniciarTimer();
+  document.querySelectorAll('.tab')[1].click();
+
+  log('Testando backend...');
+  try{await (await fetch(`${API}/`)).json();log('Backend OK','ok');}
+  catch(e){log('Erro de conex\u00e3o!','err');btn.disabled=false;btn.textContent='Geocodificar e agrupar';return;}
+
+  log('Buscando dep\u00f3sito...');
+  let dep=await geocode('Avenida Yara 75',{numero:'75',bairro:'Vila Yara',cidade:'Osasco',uf:'SP',cep:'06028110'});
+  if(!dep){dep={lat:-23.54689,lng:-46.76310};log('Usando coordenada fixa do dep\u00f3sito','ok');}
+  else log('Dep\u00f3sito localizado: Av. Yara 75, Osasco','ok');
+  depGlobal=dep;
+
+  const res=new Array(lista.length).fill(undefined);
+  gcList(lista,res);const pts=[];
+
+  for(let i=0;i<lista.length;i++){
+    if(cancelado){log('Cancelado.','err');break;}
+    btn.textContent=`Geocodificando ${i+1}/${lista.length}...`;
+    const e=lista[i];
+    log('Buscando: '+(e.cliente||e.endereco).substring(0,45));
+    const extra={numero:e.numero,bairro:e.bairro,cidade:e.cidade,uf:e.uf,cep:e.cep};
+    let c=null;
+    for(let tentativa=1;tentativa<=3;tentativa++){
+      if(cancelado) break;
+      c=await geocode(e.ruaOriginal||e.endereco,extra);
+      if(c) break;
+      if(tentativa<3){log('\u23f3 Rate limit \u2014 aguardando '+tentativa*3+'s...');await new Promise(r=>setTimeout(r,tentativa*3000));}
+    }
+    res[i]=c||false;gcList(lista,res);
+    if(c){
+      const zona=zonaProxima(c.lat,c.lng,e.cidade);
+      pts.push({...c,endereco:e.enderecoDisplay||e.endereco,enderecoDisplay:e.enderecoDisplay,bairro:e.bairro,cidade:e.cidade,cep:e.cep,pedido:e.pedido,cliente:e.cliente,obs:e.obs,valor:e.valor,vendedor:e.vendedor,dataEntrega:e.dataEntrega,motoristaSugerido:e.motoristaSugerido,zona});
+      log((e.cliente||e.endereco).substring(0,38)+'\u2026 \u2192 '+zona.nome,'ok');
+    } else {
+      log('N\u00e3o encontrado: '+(e.cliente||e.endereco).substring(0,35),'err');
+    }
+  }
+
+  log(`Conclu\u00eddo: ${pts.length} OK, ${lista.length-pts.length} falhou`,pts.length>0?'ok':'err');
+  btn.disabled=false;btn.textContent='Geocodificar e agrupar';
+  document.getElementById('btn-cancelar').style.display='none';
+  pararTimer();
+  if(!pts.length) return;
+
+  const temMotoristas=pts.some(p=>p.motoristaSugerido);
+  if(temMotoristas){
+    const motMap={};
+    pts.forEach(p=>{
+      const mRaw=p.motoristaSugerido||'Sem motorista';
+      const m=mRaw.charAt(0).toUpperCase()+mRaw.slice(1).toLowerCase();
+      if(!motMap[m]) motMap[m]={zona:p.zona,pontos:[],motorista:m};
+      motMap[m].pontos.push(p);
+    });
+    zonasComEntregas=Object.values(motMap).sort((a,b)=>b.pontos.length-a.pontos.length);
+    zonasComEntregas.forEach(z=>{
+      const zonaCount={};
+      z.pontos.forEach(p=>{zonaCount[p.zona.id]=(zonaCount[p.zona.id]||0)+1;});
+      const zm=Object.entries(zonaCount).sort((a,b)=>b[1]-a[1])[0][0];
+      z.zona=ZONAS.find(zz=>zz.id===zm)||z.pontos[0].zona;
+    });
+  } else {
+    const zonaMap={};
+    pts.forEach(p=>{
+      if(!zonaMap[p.zona.id]) zonaMap[p.zona.id]={zona:p.zona,pontos:[],motorista:''};
+      zonaMap[p.zona.id].pontos.push(p);
+    });
+    zonasComEntregas=Object.values(zonaMap).sort((a,b)=>b.pontos.length-a.pontos.length);
+  }
+  renderizarZonas();renderizarMapaZonas(dep);
+  setTimeout(()=>document.querySelectorAll('.tab')[2].click(),300);
+}
+
+function renderizarZonas(){
+  document.getElementById('zonas-empty').style.display='none';
+  document.getElementById('zonas-result').style.display='block';
+  const total=zonasComEntregas.reduce((s,z)=>s+z.pontos.length,0);
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="stat-num">${total}</div><div class="stat-lbl">Entregas</div></div>
+    <div class="stat"><div class="stat-num">${zonasComEntregas.length}</div><div class="stat-lbl">Zonas</div></div>
+    <div class="stat"><div class="stat-num">${Math.round(total/zonasComEntregas.length)}</div><div class="stat-lbl">M\u00e9dia/zona</div></div>`;
+
+  const el=document.getElementById('lista-zonas');el.innerHTML='';
+  const todosMotoristas=MOTORISTAS.filter(m=>m!=='\u2014 Selecionar \u2014');
+
+  zonasComEntregas.forEach((z,zi)=>{
+    if(rotasJaOtimizadas[z.motorista]) return;
+    const pct=Math.round(z.pontos.length/total*100);
+    const opts=MOTORISTAS.map(m=>`<option ${m===z.motorista?'selected':''}>${m}</option>`).join('');
+    const optsEnt=todosMotoristas.map(m=>`<option value="${m}">${m}</option>`).join('');
+    const div=document.createElement('div');div.className='zona-card';
+    div.innerHTML=`
+      <div class="zona-head">
+        <div class="zona-dot" style="background:${z.motorista?getCorMot(z.motorista):z.zona.cor}"></div>
+        <div class="zona-info">
+          <h4>${z.motorista||z.zona.nome} <span style="font-size:11px;color:var(--muted);font-weight:400">(${z.pontos.length} entregas \u00b7 ${z.zona.nome})</span></h4>
+          <div class="progress" style="margin-top:5px"><div class="prog-fill" style="width:${pct}%;background:${z.motorista?getCorMot(z.motorista):z.zona.cor}"></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+          <select class="zona-select" onchange="atribuirMotorista(${zi},this.value)">${opts}</select>
+          ${z.motorista&&!rotasJaOtimizadas[z.motorista]?`<button onclick="otimizarUm('${z.motorista}')" style="font-size:10px;padding:3px 10px;background:var(--blue);color:white;border:none;border-radius:5px;cursor:pointer;font-family:var(--font)">\u25b6 Otimizar</button>`:''}
+        </div>
+      </div>
+      <div class="zona-body" id="stops-zona-${zi}">
+        ${z.pontos.map((p,si)=>`
+          <div class="stop-item" draggable="true" data-zi="${zi}" data-si="${si}" style="cursor:grab"
+               ondragstart="dragStartZona(event,${zi},${si})" ondragover="dragOverZona(event)"
+               ondrop="dropZona(event,${zi},${si})" ondragend="dragEndZona(event)">
+            <span style="color:#ccc;margin-right:4px;font-size:14px">\u2837</span>
+            <span class="stop-num" style="color:${z.motorista?getCorMot(z.motorista):z.zona.cor}">${si+1}</span>
+            <div class="stop-info-c">
+              <div class="stop-cliente">${p.cliente||'\u2014'}
+                ${p.motoristaSugerido?`<span style="font-size:10px;background:var(--blue-l);color:var(--blue);padding:1px 6px;border-radius:10px;margin-left:4px">${p.motoristaSugerido}</span>`:''}
+              </div>
+              <div class="stop-end">${p.endereco}${p.cep?' \u00b7 CEP '+p.cep:''}</div>
+              ${p.dataEntrega?`<div style="font-size:10px;color:#1a5fa8;margin-top:2px">\ud83d\udcc5 ${p.dataEntrega}</div>`:''}
+              ${p.obs?`<div class="stop-obs">\u26a0 ${p.obs}</div>`:''}
+              ${p.valor?`<div style="font-size:11px;font-weight:600;color:var(--green);margin-top:2px;background:#e6f2df;padding:1px 7px;border-radius:10px;display:inline-block">R$ ${parseFloat(p.valor.toString().replace(',','.')).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`:''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
+              <select class="zona-select" style="font-size:10px;padding:3px 5px" onchange="moverEntregaParaZona(${zi},${si},this.value)">
+                <option value="">\u2194 mover</option>${optsEnt}
+              </select>
+              <div style="display:flex;gap:3px">
+                <button onclick="editarEndereco(${zi},${si})" style="font-size:10px;padding:2px 6px;border:1px solid var(--blue);color:var(--blue);background:var(--blue-l);border-radius:5px;cursor:pointer;font-family:var(--font)">\u270f\ufe0f</button>
+                <button onclick="reagendarEntrega(${zi},${si})" style="font-size:10px;padding:2px 6px;border:1px solid var(--amber);color:var(--amber);background:var(--amber-l);border-radius:5px;cursor:pointer;font-family:var(--font)">\ud83d\udcc5</button>
+                <button onclick="excluirEntrega(${zi},${si})" style="font-size:10px;padding:2px 6px;border:1px solid var(--red);color:var(--red);background:var(--red-l);border-radius:5px;cursor:pointer;font-family:var(--font)">\u2715</button>
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+    el.appendChild(div);
+  });
+}
+
+function atribuirMotorista(zi,nome){
+  if(nome==='+ Outro...'){
+    const custom=prompt('Digite o nome do motorista:','');
+    if(custom&&custom.trim()){
+      zonasComEntregas[zi].motorista=custom.trim();
+      const sel=document.querySelectorAll('.zona-select')[zi];
+      if(sel){let opt=sel.querySelector(`option[value="${custom.trim()}"]`);if(!opt){opt=document.createElement('option');opt.value=custom.trim();opt.textContent=custom.trim();sel.insertBefore(opt,sel.lastElementChild);}sel.value=custom.trim();}
+    } else {
+      const sel=document.querySelectorAll('.zona-select')[zi];
+      if(sel) sel.value='\u2014 Selecionar \u2014';
+      zonasComEntregas[zi].motorista='';
+    }
+    return;
+  }
+  zonasComEntregas[zi].motorista=nome==='\u2014 Selecionar \u2014'?'':nome;
+}
+
+function nn(dep,pts){
+  const r=[...pts];const rota=[];let cur=dep;
+  while(r.length){let b=0,bd=Infinity;r.forEach((p,i)=>{const d=(p.lat-cur.lat)**2+(p.lng-cur.lng)**2;if(d<bd){bd=d;b=i;}});rota.push(r.splice(b,1)[0]);cur=rota[rota.length-1];}
+  return rota;
+}
+
+function distKm(a,b){
+  const R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180;
+  const aa=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa));
+}
+
+function renderizarMapaZonas(dep){
+  initMap();layers.forEach(l=>mapa.removeLayer(l));layers=[];
+  const di=L.divIcon({className:'',html:`<div style="width:26px;height:26px;border-radius:50%;background:#1a1a18;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,.3)">CD</div>`,iconSize:[26,26],iconAnchor:[13,13]});
+  layers.push(L.marker([dep.lat,dep.lng],{icon:di}).addTo(mapa).bindPopup('<b>Copeli \u2014 Dep\u00f3sito</b>'));
+  const all=[[dep.lat,dep.lng]];
+  zonasComEntregas.forEach(z=>{
+    z.pontos.forEach((p,i)=>{
+      all.push([p.lat,p.lng]);
+      const icon=L.divIcon({className:'',html:`<div style="width:22px;height:22px;border-radius:50%;background:${z.motorista?getCorMot(z.motorista):z.zona.cor};border:2.5px solid white;display:flex;align-items:center;justify-content:center;font-size:9px;color:white;font-weight:600;box-shadow:0 2px 5px rgba(0,0,0,.25)">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]});
+      const motOpts=MOTORISTAS.filter(m=>m!=='\u2014 Selecionar \u2014'&&m!=='+ Outro...').map(m=>`<option value="${m}" ${m===(z.motorista||'')?'selected':''}>${m}</option>`).join('')+'<option value="__outro__">+ Outro...</option>';
+      const corPonto=z.motorista?getCorMot(z.motorista):z.zona.cor;
+      const popupHtml=`<b style="color:${corPonto}">${z.motorista||z.zona.nome}</b><br><b>${p.cliente||'\u2014'}</b><br><span style="font-size:11px">${p.endereco}</span>${p.obs?`<br><span style="font-size:10px;color:#8a5a00">\u26a0 ${p.obs}</span>`:''}<br><div style="margin-top:6px"><select style="font-size:11px;padding:3px;border-radius:5px;width:100%" onchange="alterarMotoristaNoMapa('${p.lat}','${p.lng}',this.value)"><option value="">\u270e Alterar motorista</option>${motOpts}</select></div>`;
+      layers.push(L.marker([p.lat,p.lng],{icon}).addTo(mapa).bindPopup(popupHtml,{maxWidth:220}));
+    });
+    layers.push(L.circle([z.zona.lat,z.zona.lng],{radius:4000,color:z.zona.cor,fillColor:z.zona.cor,fillOpacity:0.06,weight:1,dashArray:'6,5',opacity:0.5}).addTo(mapa));
+    const zonaLabel=L.divIcon({className:'',html:`<div style="font-size:10px;font-weight:600;color:${z.zona.cor};opacity:0.7;white-space:nowrap;text-shadow:0 0 3px white,0 0 3px white">${z.zona.nome}</div>`,iconAnchor:[40,8]});
+    layers.push(L.marker([z.zona.lat,z.zona.lng],{icon:zonaLabel,interactive:false}).addTo(mapa));
+  });
+  if(all.length>1) mapa.fitBounds(all,{padding:[40,40]});
+}
+
+async function otimizarRotas(){
+  const zonasParaOtimizar=zonasComEntregas.filter(z=>z.motorista);
+  if(!zonasParaOtimizar.length){alert('Selecione ao menos um motorista para otimizar.');return;}
+  const zonasNovas=zonasParaOtimizar.filter(z=>!rotasJaOtimizadas[z.motorista]);
+  if(!zonasNovas.length){alert('Selecione um novo motorista nas zonas pendentes para otimizar.');return;}
+
+  const timerEl2=document.getElementById('timer-box');
+  timerEl2.style.background='var(--blue-l)';timerEl2.style.color='var(--blue)';
+  iniciarTimer();
+
+  const motMap={};
+  zonasNovas.forEach(z=>{
+    const m=z.motorista;
+    if(!motMap[m]) motMap[m]={motorista:m,pontos:[],zonas:[],cor:z.zona.cor};
+    motMap[m].pontos.push(...z.pontos.map(p=>({...p,zona:p.zona||z.zona})));
+    motMap[m].zonas.push(z.zona.nome);
+  });
+  const rotasFinais=Object.values(motMap);
+  const dep=depGlobal;
+
+  for(const r of rotasFinais){
+    const rota=nn(dep,r.pontos);r.rotaOtimizada=rota;
+    let km=0;[dep,...rota,dep].forEach((p,i,a)=>{if(i>0) km+=distKm(a[i-1],p);});
+    r.distKm=Math.round(km);
+  }
+  pararTimer();
+  rotasFinais.forEach(r=>{rotasJaOtimizadas[r.motorista]=r;});
+  const todasRotas=Object.values(rotasJaOtimizadas);
+  await reotimizarMapa(todasRotas);
+  renderizarRotasFundidas(todasRotas);
+}
+
+async function otimizarUm(motoristaNome){
+  // Recebe nome do motorista diretamente — sem dependência de índice zi
+  if(!motoristaNome){alert('Selecione um motorista primeiro.');return;}
+  if(rotasJaOtimizadas[motoristaNome]){alert(`${motoristaNome} j\u00e1 foi otimizado.`);return;}
+  const pontos=[];
+  zonasComEntregas.forEach(zz=>{if(zz.motorista===motoristaNome) pontos.push(...zz.pontos);});
+  if(!pontos.length) return;
+  const rota=nn(depGlobal,pontos);
+  let km=0;[depGlobal,...rota,depGlobal].forEach((p,i,a)=>{if(i>0) km+=distKm(a[i-1],p);});
+  const zonas=[...new Set(pontos.map(p=>p.zona?.nome).filter(Boolean))];
+  rotasJaOtimizadas[motoristaNome]={motorista:motoristaNome,rotaOtimizada:rota,pontos,zonas,cor:getCorMot(motoristaNome),distKm:Math.round(km)};
+  const todasRotas=Object.values(rotasJaOtimizadas);
+  await reotimizarMapa(todasRotas);
+  renderizarRotasFundidas(todasRotas);
+}
+
+async function reotimizarMotorista(motorista){
+  if(!rotasJaOtimizadas[motorista]) return;
+  // Usa rotaOtimizada como fonte de verdade — não zonasComEntregas
+  const pontos=rotasJaOtimizadas[motorista].rotaOtimizada||[];
+  if(!pontos.length){
+    delete rotasJaOtimizadas[motorista];
+  } else {
+    const rota=nn(depGlobal,[...pontos]);
+    rotasJaOtimizadas[motorista].rotaOtimizada=rota;
+    rotasJaOtimizadas[motorista].pontos=rota;
+    let km=0;[depGlobal,...rota,depGlobal].forEach((p,i,a)=>{if(i>0) km+=distKm(a[i-1],p);});
+    rotasJaOtimizadas[motorista].distKm=Math.round(km);
+  }
+  const todasRotas=Object.values(rotasJaOtimizadas);
+  await reotimizarMapa(todasRotas);
+  renderizarRotasFundidas(todasRotas);
+}
+
+function alterarMotoristaOtimizado(lat,lng,novoMot){
+  if(!novoMot) return;
+  if(novoMot==='__outro__'){novoMot=prompt('Digite o nome do motorista:','');if(!novoMot||!novoMot.trim()) return;novoMot=novoMot.trim();}
+  lat=parseFloat(lat);lng=parseFloat(lng);
+  for(const [mot,rota] of Object.entries(rotasJaOtimizadas)){
+    const idx=rota.rotaOtimizada.findIndex(p=>Math.abs(p.lat-lat)<0.00001&&Math.abs(p.lng-lng)<0.00001);
+    if(idx>=0){
+      const ponto=rota.rotaOtimizada.splice(idx,1)[0];
+      // Cria rota para o novo motorista se não existir
+      if(!rotasJaOtimizadas[novoMot]){
+        const zonaBase=zonaProxima(ponto.lat,ponto.lng,ponto.cidade);
+        rotasJaOtimizadas[novoMot]={motorista:novoMot,rotaOtimizada:[ponto],pontos:[ponto],zonas:[zonaBase.nome],cor:getCorMot(novoMot),distKm:0};
+      } else {
+        rotasJaOtimizadas[novoMot].rotaOtimizada.push(ponto);
+      }
+      mapa.closePopup();
+      reotimizarMotorista(mot);
+      reotimizarMotorista(novoMot);
+      return;
+    }
+  }
+}
+
+function alterarMotoristaNoMapa(lat,lng,novoMot){
+  if(!novoMot) return;
+  if(novoMot==='__outro__'){novoMot=prompt('Digite o nome do motorista:','');if(!novoMot||!novoMot.trim()) return;novoMot=novoMot.trim();}
+  lat=parseFloat(lat);lng=parseFloat(lng);
+  for(let zi=0;zi<zonasComEntregas.length;zi++){
+    const z=zonasComEntregas[zi];
+    for(let si=0;si<z.pontos.length;si++){
+      const p=z.pontos[si];
+      if(Math.abs(p.lat-lat)<0.00001&&Math.abs(p.lng-lng)<0.00001){
+        moverEntregaParaZona(zi,si,novoMot);mapa.closePopup();return;
+      }
+    }
+  }
+}
+
+function toggleNovaEntregaZona(){
+  const f=document.getElementById('form-nova-zona');
+  const vis=f.style.display!=='none';
+  f.style.display=vis?'none':'block';
+  if(!vis) setTimeout(()=>document.getElementById('nz-cliente').focus(),50);
+}
+
+async function adicionarEntregaZona(){
+  const cliente=document.getElementById('nz-cliente').value.trim();
+  const cepRaw=document.getElementById('nz-cep').value.trim().replace(/\D/g,'');
+  const endText=document.getElementById('nz-end').value.trim();
+  const obs=document.getElementById('nz-obs').value.trim();
+  const motoristaSel=document.getElementById('nz-motorista').value.trim();
+  if(!cepRaw&&!endText){alert('Informe o CEP ou endereço.');return;}
+  const btn=document.querySelector('#form-nova-zona .btn-primary');
+  btn.disabled=true;btn.textContent='Geocodificando...';
+  let cep=cepRaw;while(cep.length<8) cep='0'+cep;
+  const extra={numero:endText.match(/\d+/)?.[0]||'',bairro:'',cidade:'SAO PAULO',uf:'SP',cep};
+  const c=await geocode(endText||'',extra);
+  btn.disabled=false;btn.textContent='Geocodificar e adicionar';
+  if(!c){alert('Endereço não encontrado. Tente com mais detalhes.');return;}
+  const zona=zonaProxima(c.lat,c.lng,'SAO PAULO');
+  const novoPonto={...c,endereco:endText||`CEP ${cep}`,enderecoDisplay:endText||`CEP ${cep}`,
+    bairro:'',cidade:'SAO PAULO',cep,pedido:'',cliente,obs,valor:'',vendedor:'',dataEntrega:'',
+    motoristaSugerido:motoristaSel,zona};
+  // Limpa formulário
+  ['nz-cliente','nz-cep','nz-end','nz-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('nz-motorista').value='';
+  toggleNovaEntregaZona();
+  // Se motorista selecionado já está otimizado → insere direto na rota
+  if(motoristaSel&&rotasJaOtimizadas[motoristaSel]){
+    rotasJaOtimizadas[motoristaSel].rotaOtimizada.push(novoPonto);
+    let km=0;[depGlobal,...rotasJaOtimizadas[motoristaSel].rotaOtimizada,depGlobal].forEach((p,i,a)=>{if(i>0)km+=distKm(a[i-1],p);});
+    rotasJaOtimizadas[motoristaSel].distKm=Math.round(km);
+    const todasRotas=Object.values(rotasJaOtimizadas);
+    await reotimizarMapa(todasRotas);
+    renderizarRotasFundidas(todasRotas);
+  } else {
+    // Adiciona na zona/grupo do motorista
+    let dest=motoristaSel?zonasComEntregas.find(z=>z.motorista===motoristaSel):null;
+    if(!dest){ dest=zonasComEntregas.find(z=>z.zona.id===zona.id); }
+    if(!dest){ dest={zona,pontos:[],motorista:motoristaSel||''}; zonasComEntregas.push(dest); }
+    if(motoristaSel&&!dest.motorista) dest.motorista=motoristaSel;
+    dest.pontos.push(novoPonto);
+    renderizarZonas();
+    renderizarMapaZonas(depGlobal);
+  }
+  log(`${cliente||'Nova entrega'} adicionada → ${zona.nome}`,'ok');
+  document.querySelectorAll('.tab')[1].click();
+  setTimeout(()=>document.querySelectorAll('.tab')[2].click(),300);
+}
+
+function editarEndereco(zi,si){
+  const p=zonasComEntregas[zi].pontos[si];
+  const novoEnd=prompt('Editar endere\u00e7o:',p.enderecoDisplay||p.endereco);
+  if(!novoEnd||novoEnd===p.enderecoDisplay) return;
+  zonasComEntregas[zi].pontos[si].endereco=novoEnd;
+  zonasComEntregas[zi].pontos[si].enderecoDisplay=novoEnd;
+  renderizarZonas();
+}
+
+function excluirEntrega(zi,si){
+  if(!confirm('Excluir esta entrega da rota de hoje?')) return;
+  const motorista=zonasComEntregas[zi].motorista;
+  zonasComEntregas[zi].pontos.splice(si,1);
+  zonasComEntregas=zonasComEntregas.filter(z=>z.pontos.length>0);
+  renderizarZonas();
+  if(motorista&&rotasJaOtimizadas[motorista]) reotimizarMotorista(motorista);
+}
+
+function alterarOrdemEntrega(lat,lng,novaPosicao){
+  if(novaPosicao==='') return;
+  lat=parseFloat(lat); lng=parseFloat(lng);
+  const pos=parseInt(novaPosicao);
+  for(const [mot,rota] of Object.entries(rotasJaOtimizadas)){
+    const idx=rota.rotaOtimizada.findIndex(p=>Math.abs(p.lat-lat)<0.00001&&Math.abs(p.lng-lng)<0.00001);
+    if(idx>=0){
+      const [ponto]=rota.rotaOtimizada.splice(idx,1);
+      rota.rotaOtimizada.splice(pos,0,ponto);
+      mapa.closePopup();
+      // Recalcula km
+      let km=0; [depGlobal,...rota.rotaOtimizada,depGlobal].forEach((p,i,a)=>{ if(i>0) km+=distKm(a[i-1],p); });
+      rota.distKm=Math.round(km);
+      const todasRotas=Object.values(rotasJaOtimizadas);
+      reotimizarMapa(todasRotas);
+      renderizarRotasFundidas(todasRotas);
+      return;
+    }
+  }
+}
+
+function excluirEntregaOtimizada(lat,lng){
+  if(!confirm('Excluir esta entrega?')) return;
+  lat=parseFloat(lat);lng=parseFloat(lng);
+  for(const [mot,rota] of Object.entries(rotasJaOtimizadas)){
+    const idx=rota.rotaOtimizada.findIndex(p=>Math.abs(p.lat-lat)<0.00001&&Math.abs(p.lng-lng)<0.00001);
+    if(idx>=0){
+      rota.rotaOtimizada.splice(idx,1);
+      mapa.closePopup();
+      reotimizarMotorista(mot);
+      renderizarRotasFundidas(Object.values(rotasJaOtimizadas));
+      return;
+    }
+  }
+}
+
+function reagendarEntrega(zi,si){
+  const p=zonasComEntregas[zi].pontos[si];
+  const obs=prompt('Motivo do reagendamento (opcional):','');
+  p.reagendadoMotivo=obs||'Reagendado';
+  entregasReagendadas.push({...p,reagendadoEm:new Date().toLocaleString('pt-BR')});
+  const motReag=zonasComEntregas[zi].motorista;
+  zonasComEntregas[zi].pontos.splice(si,1);
+  zonasComEntregas=zonasComEntregas.filter(z=>z.pontos.length>0);
+  renderizarZonas();atualizarBadgeReagendadas();
+  if(motReag&&rotasJaOtimizadas[motReag]) reotimizarMotorista(motReag);
+}
+
+function atualizarBadgeReagendadas(){
+  const n=entregasReagendadas.length;
+  const badge=document.getElementById('badge-reagendadas');
+  const btn=document.getElementById('btn-export-reagendadas');
+  if(!badge) return;
+  badge.textContent=n>0?`${n} reagendada${n>1?'s':''}`:'';
+  badge.style.display=n>0?'block':'none';
+  if(btn) btn.style.display=n>0?'block':'none';
+}
+
+function exportarReagendadas(){
+  if(!entregasReagendadas.length) return;
+  const linhas=[['Pedido','Cliente','Bairro','Cidade','Endere\u00e7o','CEP','Motorista Sugerido','Motivo','Reagendado Em']];
+  entregasReagendadas.forEach(p=>{
+    linhas.push([p.pedido||'',p.cliente||'',p.bairro||'',p.cidade||'',p.enderecoDisplay||p.endereco||'',p.cep||'',p.motoristaSugerido||'',p.reagendadoMotivo||'',p.reagendadoEm||'']);
+  });
+  const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(linhas);
+  ws['!cols']=[{wch:12},{wch:35},{wch:20},{wch:18},{wch:40},{wch:12},{wch:18},{wch:30},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,ws,'Reagendadas');
+  const hoje=new Date();
+  const data=String(hoje.getDate()).padStart(2,'0')+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+hoje.getFullYear();
+  XLSX.writeFile(wb,`Reagendadas_Copeli_${data}.xlsx`);
+}
+
+function desotimizar(motorista){
+  if(!confirm(`Desotimizar a rota de ${motorista}? As entregas voltam para a sele\u00e7\u00e3o.`)) return;
+  const rota=rotasJaOtimizadas[motorista];if(!rota) return;
+  const pontosRota=rota.rotaOtimizada;
+  const idsRota=new Set(pontosRota.map(p=>p.lat+'|'+p.lng));
+  zonasComEntregas.forEach(z=>{z.pontos=z.pontos.filter(p=>!idsRota.has(p.lat+'|'+p.lng));});
+  const temGrupoMot=zonasComEntregas.some(z=>z.motorista);
+  pontosRota.forEach(p=>{
+    if(temGrupoMot){
+      // Tenta devolver para o motorista original do ponto
+      const motOriginal=p.motoristaSugerido||motorista;
+      const mNorm=motOriginal.charAt(0).toUpperCase()+motOriginal.slice(1).toLowerCase();
+      // Busca zona existente pelo motorista original OU pelo motorista da rota
+      let z=zonasComEntregas.find(z=>z.motorista===mNorm)
+          ||zonasComEntregas.find(z=>z.motorista===motorista)
+          ||zonasComEntregas.find(z=>z.motorista===motOriginal);
+      if(!z){
+        // Cria grupo com o motorista da rota sendo desotimizada
+        const zona=p.zona||zonaProxima(p.lat,p.lng,p.cidade);
+        z={zona,pontos:[],motorista:motorista};
+        zonasComEntregas.push(z);
+      }
+      z.pontos.push(p);
+    } else {
+      const zona=p.zona||zonaProxima(p.lat,p.lng,p.cidade);
+      let z=zonasComEntregas.find(z=>z.zona.id===zona.id);
+      if(!z){z={zona,pontos:[],motorista:''};zonasComEntregas.push(z);}
+      z.pontos.push(p);z.motorista='';
+    }
+  });
+  zonasComEntregas=zonasComEntregas.filter(z=>z.pontos.length>0);
+  delete rotasJaOtimizadas[motorista];
+  layers.forEach(l=>mapa.removeLayer(l));layers=[];
+  if(depGlobal){
+    const di=L.divIcon({className:'',html:`<div style="width:26px;height:26px;border-radius:50%;background:#1a1a18;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,.3)">CD</div>`,iconSize:[26,26],iconAnchor:[13,13]});
+    layers.push(L.marker([depGlobal.lat,depGlobal.lng],{icon:di}).addTo(mapa).bindPopup('<b>Copeli \u2014 Dep\u00f3sito</b>'));
+  }
+  const restantes=Object.values(rotasJaOtimizadas);
+  renderizarZonas();
+  if(restantes.length){renderizarRotasFundidas(restantes);reotimizarMapa(restantes);}
+  else{
+    layers.forEach(l=>mapa.removeLayer(l));layers=[];
+    if(depGlobal){
+      const di=L.divIcon({className:'',html:`<div style="width:26px;height:26px;border-radius:50%;background:#1a1a18;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,.3)">CD</div>`,iconSize:[26,26],iconAnchor:[13,13]});
+      layers.push(L.marker([depGlobal.lat,depGlobal.lng],{icon:di}).addTo(mapa).bindPopup('<b>Copeli \u2014 Dep\u00f3sito</b>'));
+    }
+    renderizarMapaZonas(depGlobal);
+    document.getElementById('stats').innerHTML=`<div class="stat"><div class="stat-num">${zonasComEntregas.reduce((s,z)=>s+z.pontos.length,0)}</div><div class="stat-lbl">Entregas</div></div><div class="stat"><div class="stat-num">\u2014</div><div class="stat-lbl">Total</div></div><div class="stat"><div class="stat-num">0</div><div class="stat-lbl">Motoristas</div></div>`;
+  }
+  window._rotasFundidas=restantes;
+}
+
+let dragRiSrc=null,dragOiSrc=null;
+function dragStartOt(e,ri,oi){dragRiSrc=ri;dragOiSrc=oi;e.currentTarget.style.opacity='0.4';e.dataTransfer.effectAllowed='move';}
+function dropOt(e,riDest,oiDest){
+  e.preventDefault();e.currentTarget.style.borderTop='';if(dragRiSrc===null) return;
+  const rotas=Object.values(rotasJaOtimizadas);
+  if(dragRiSrc===riDest&&dragOiSrc===oiDest) return;
+  if(dragRiSrc===riDest){const pts=rotas[riDest].rotaOtimizada;const [item]=pts.splice(dragOiSrc,1);pts.splice(oiDest,0,item);}
+  else{const [item]=rotas[dragRiSrc].rotaOtimizada.splice(dragOiSrc,1);rotas[riDest].rotaOtimizada.splice(oiDest,0,item);}
+  dragRiSrc=null;dragOiSrc=null;renderizarRotasFundidas(rotas);
+  setTimeout(()=>{if(confirm('Ordem alterada! Deseja reotimizar o trajeto no mapa?')) reotimizarMapa(rotas);},100);
+}
+
+function moverEntregaOtimizada(ri,oi,novoMot){
+  if(!novoMot) return;
+  const rotas=Object.values(rotasJaOtimizadas);
+  const ponto=rotas[ri].rotaOtimizada[oi];
+  let destino=rotas.find(r=>r.motorista===novoMot);
+  if(!destino){
+    // Cria rota automaticamente para o novo motorista
+    destino={motorista:novoMot,rotaOtimizada:[],pontos:[],zonas:[],cor:getCorMot(novoMot),distKm:0};
+    rotasJaOtimizadas[novoMot]=destino;
+  }
+  rotas[ri].rotaOtimizada.splice(oi,1);destino.rotaOtimizada.push(ponto);
+  renderizarRotasFundidas(rotas);
+  setTimeout(()=>{if(confirm('Entrega movida! Deseja reotimizar o trajeto no mapa?')) reotimizarMapa(rotas);},100);
+}
+
+let dragZiSrc=null,dragSiSrc=null;
+function dragStartZona(e,zi,si){dragZiSrc=zi;dragSiSrc=si;e.dataTransfer.effectAllowed='move';e.currentTarget.style.opacity='0.4';}
+function dragEndZona(e){e.currentTarget.style.opacity='1';document.querySelectorAll('.stop-item').forEach(el=>el.style.borderTop='');}
+function dragOverZona(e){e.preventDefault();e.currentTarget.style.borderTop='2px solid var(--blue)';}
+function dropZona(e,ziDest,siDest){
+  e.preventDefault();e.currentTarget.style.borderTop='';
+  if(dragZiSrc===null||dragSiSrc===null) return;
+  if(dragZiSrc===ziDest&&dragSiSrc===siDest) return;
+  if(dragZiSrc===ziDest){const pts=zonasComEntregas[ziDest].pontos;const [item]=pts.splice(dragSiSrc,1);pts.splice(siDest,0,item);}
+  else{const [item]=zonasComEntregas[dragZiSrc].pontos.splice(dragSiSrc,1);zonasComEntregas[ziDest].pontos.splice(siDest,0,item);zonasComEntregas=zonasComEntregas.filter(z=>z.pontos.length>0);}
+  const motOrigem=dragZiSrc<zonasComEntregas.length?zonasComEntregas[dragZiSrc]?.motorista:null;
+  dragZiSrc=null;dragSiSrc=null;renderizarZonas();
+  const afetados=new Set([motOrigem,zonasComEntregas[ziDest]?.motorista].filter(Boolean));
+  afetados.forEach(m=>{if(rotasJaOtimizadas[m]) reotimizarMotorista(m);});
+  if(!afetados.size){const rotas=Object.values(rotasJaOtimizadas);if(rotas.length) renderizarRotasFundidas(rotas);}
+}
+
+function moverEntregaParaZona(zi,si,motoristaNome){
+  if(!motoristaNome) return;
+  const ponto=zonasComEntregas[zi].pontos[si];
+  const motOrigem=zonasComEntregas[zi].motorista;
+  let zonaDestino=zonasComEntregas.find(z=>z.motorista===motoristaNome);
+  if(!zonaDestino){const zonaBase=zonaProxima(ponto.lat,ponto.lng,ponto.cidade);zonaDestino={zona:zonaBase,pontos:[],motorista:motoristaNome};zonasComEntregas.push(zonaDestino);}
+  zonasComEntregas[zi].pontos.splice(si,1);zonaDestino.pontos.push(ponto);
+  zonasComEntregas=zonasComEntregas.filter(z=>z.pontos.length>0);renderizarZonas();
+  const afetados=new Set([motOrigem,motoristaNome].filter(Boolean));
+  afetados.forEach(m=>{if(rotasJaOtimizadas[m]) reotimizarMotorista(m);});
+}
+
+async function reotimizarMapa(rotas){
+  layers.forEach(l=>mapa.removeLayer(l));layers=[];
+  const dep=depGlobal;
+  const di=L.divIcon({className:'',html:`<div style="width:26px;height:26px;border-radius:50%;background:#1a1a18;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,.3)">CD</div>`,iconSize:[26,26],iconAnchor:[13,13]});
+  layers.push(L.marker([dep.lat,dep.lng],{icon:di}).addTo(mapa).bindPopup('<b>Copeli \u2014 Dep\u00f3sito</b>'));
+
+  const motOtimizados=new Set(rotas.map(r=>r.motorista));
+  zonasComEntregas.forEach(z=>{
+    if(motOtimizados.has(z.motorista)) return;
+    const cor=z.motorista?getCorMot(z.motorista):z.zona.cor;
+    z.pontos.forEach((p,i)=>{
+      const icon=L.divIcon({className:'',html:`<div style="width:22px;height:22px;border-radius:50%;background:${cor};border:2.5px solid white;display:flex;align-items:center;justify-content:center;font-size:9px;color:white;font-weight:600">${i+1}</div>`,iconSize:[22,22],iconAnchor:[11,11]});
+      const motOpts=MOTORISTAS.filter(m=>m!=='\u2014 Selecionar \u2014'&&m!=='+ Outro...').map(m=>`<option value="${m}">${m}</option>`).join('')+'<option value="__outro__">+ Outro...</option>';
+      layers.push(L.marker([p.lat,p.lng],{icon}).addTo(mapa).bindPopup(`<b style="color:${cor}">${z.motorista||z.zona.nome}</b><br><b>${p.cliente||'\u2014'}</b><br><span style="font-size:11px">${p.endereco}</span>${p.obs?`<br><span style="font-size:10px;color:#8a5a00">\u26a0 ${p.obs}</span>`:''}<br><div style="margin-top:6px"><select style="font-size:11px;padding:3px;border-radius:5px;width:100%" onchange="alterarMotoristaNoMapa('${p.lat}','${p.lng}',this.value)"><option value="">\u270e Alterar motorista</option>${motOpts}</select></div>`,{maxWidth:220}));
+    });
+  });
+
+  const all=[[dep.lat,dep.lng]];
+  for(let ri=0;ri<rotas.length;ri++){const r=rotas[ri];
+    if(!r.rotaOtimizada||!r.rotaOtimizada.length) continue;
+    const rota=r.rotaOtimizada;
+    const corMot=getCorMot(r.motorista);
+    // Ícone de saída: mostra inicial do motorista + seta, com leve offset para não sobrepor
+    const iniciais=r.motorista.substring(0,2).toUpperCase();
+    const playIcon=L.divIcon({className:'',html:`<div style="width:34px;height:34px;border-radius:50%;background:${corMot};border:3px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.5);font-size:10px;color:white;font-weight:700;gap:1px">${iniciais}<svg width="9" height="9" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg></div>`,iconSize:[34,34],iconAnchor:[17,17]});
+    layers.push(L.marker([dep.lat,dep.lng],{icon:playIcon,zIndexOffset:1000+ri}).addTo(mapa).bindPopup(`<b style="color:${corMot}">${r.motorista}</b> · ▶ SAÍDA — ${rota.length} entregas · ${r.distKm||'?'}km`));
+    // Tenta OSRM com até 2 tentativas, fallback em segmentos menores se necessário
+    // Desenha rota via HERE Maps Routing API, fallback OSRM, fallback linha reta
+    let rotaDesenhada=false;
+
+    // 1) HERE Maps — principal
+    try{
+      const wpts=[dep,...rota,dep];
+      const vias=wpts.map(p=>`via=${p.lat},${p.lng}`).join('&');
+      const hereUrl=`https://router.hereapi.com/v8/routes?transportMode=car&${vias}&return=polyline&apikey=4YEO9FLs9MHJE9eDar3MofG9qyF1pCaAWZTSAA6KCfM`;
+      const resp=await fetch(hereUrl,{signal:AbortSignal.timeout(10000)});
+      const data=await resp.json();
+      if(data.routes&&data.routes[0]){
+        const coords=[];
+        data.routes[0].sections.forEach(s=>{
+          const pts=decodeHerePolyline(s.polyline);
+          coords.push(...pts);
+        });
+        layers.push(L.polyline(coords,{color:corMot,weight:4,opacity:0.92}).addTo(mapa));
+        rotaDesenhada=true;
+      }
+    }catch(e){console.warn('HERE routing falhou:',e);}
+
+    // 2) OSRM fallback
+    if(!rotaDesenhada){
+      try{
+        const wpts=[dep,...rota,dep];
+        const coords=wpts.map(p=>`${p.lng},${p.lat}`).join(';');
+        const resp=await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`,{signal:AbortSignal.timeout(8000)});
+        const data=await resp.json();
+        if(data.routes&&data.routes[0]){
+          layers.push(L.polyline(data.routes[0].geometry.coordinates.map(([lng,lat])=>[lat,lng]),{color:corMot,weight:4,opacity:0.9}).addTo(mapa));
+          rotaDesenhada=true;
+        }
+      }catch(e){console.warn('OSRM falhou:',e);}
+    }
+
+    // 3) Linha reta tracejada — último recurso
+    if(!rotaDesenhada){
+      layers.push(L.polyline([dep,...rota,dep].map(p=>[p.lat,p.lng]),{color:corMot,weight:3,opacity:.8,dashArray:'8,5'}).addTo(mapa));
+    }
+
+    all.push(...rota.map(p=>[p.lat,p.lng]));
+    rota.forEach((p,i)=>{
+      const isLast=i===rota.length-1;
+      const iconHtml=isLast
+        ?`<div style="width:30px;height:30px;border-radius:50%;background:${corMot};border:3px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4)"><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><rect x="6" y="6" width="12" height="12"/></svg></div>`
+        :`<div style="width:24px;height:24px;border-radius:50%;background:${corMot};border:2.5px solid white;display:flex;align-items:center;justify-content:center;font-size:9px;color:white;font-weight:600">${i+1}</div>`;
+      const icon=L.divIcon({className:'',html:iconHtml,iconSize:isLast?[30,30]:[24,24],iconAnchor:isLast?[15,15]:[12,12]});
+      const totalEntregas=rota.length;
+      const opcoesOrdem=Array.from({length:totalEntregas},(_,n)=>`<option value="${n}" ${n===i?'selected':''}>${n+1}ª posição</option>`).join('');
+      const motOpts2=MOTORISTAS.filter(m=>m!=='— Selecionar —'&&m!=='+ Outro...').map(m=>`<option value="${m}" ${m===r.motorista?'selected':''}>${m}</option>`).join('')+'<option value="__outro__">+ Outro...</option>';
+      const popupOt=`<b style="color:${corMot}">${r.motorista}</b> · ${i+1}ª entrega<br><b>${p.cliente||'—'}</b><br><span style="font-size:11px">${p.endereco}</span>${p.obs?`<br><span style="font-size:10px;color:#8a5a00">⚠ ${p.obs}</span>`:''}<br><div style="margin-top:6px;display:flex;flex-direction:column;gap:4px"><select style="font-size:11px;padding:3px;border-radius:5px;width:100%" onchange="alterarOrdemEntrega('${p.lat}','${p.lng}',this.value)"><option value="">↕ Mover para posição</option>${opcoesOrdem}</select><select style="font-size:11px;padding:3px;border-radius:5px;width:100%" onchange="alterarMotoristaOtimizado('${p.lat}','${p.lng}',this.value)"><option value="">✎ Alterar motorista</option>${motOpts2}</select><button onclick="excluirEntregaOtimizada('${p.lat}','${p.lng}')" style="font-size:10px;padding:3px;background:var(--red-l);color:var(--red);border:1px solid var(--red);border-radius:5px;cursor:pointer">✕ Excluir</button></div>`;
+      layers.push(L.marker([p.lat,p.lng],{icon}).addTo(mapa).bindPopup(popupOt,{maxWidth:220}));
+    });
+  }
+  if(all.length>1) mapa.fitBounds(all,{padding:[40,40]});
+}
+
+function renderizarRotasFundidas(rotas){
+  window._rotasFundidas=rotas;
+  const total=rotas.reduce((s,r)=>s+(r.rotaOtimizada||r.pontos).length,0);
+  const totalKm=rotas.reduce((s,r)=>s+(r.distKm||0),0);
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="stat-num">${total}</div><div class="stat-lbl">Entregas</div></div>
+    <div class="stat"><div class="stat-num">${totalKm}km</div><div class="stat-lbl">Total</div></div>
+    <div class="stat"><div class="stat-num">${rotas.length}</div><div class="stat-lbl">Motoristas</div></div>`;
+  renderizarZonas();
+  const el=document.getElementById('lista-zonas');
+  if(rotas.length>0){const sep=document.createElement('div');sep.className='section-lbl';sep.style.marginTop='14px';sep.textContent='Rotas otimizadas';el.appendChild(sep);}
+  const todosMotOt=MOTORISTAS.filter(m=>m!=='\u2014 Selecionar \u2014');
+  rotas.forEach((r,ri)=>{
+    const pts=r.rotaOtimizada||r.pontos;
+    const pct=Math.round(pts.length/Math.max(total,1)*100);
+    const optsEnt=todosMotOt.map(m=>`<option value="${m}">${m}</option>`).join('');
+    const corMot=getCorMot(r.motorista);
+    const div=document.createElement('div');div.className='zona-card';div.style.borderColor=corMot;
+    div.innerHTML=`
+      <div class="zona-head" style="cursor:default">
+        <div class="zona-dot" style="background:${corMot}"></div>
+        <div class="zona-info">
+          <h4>${r.motorista} <span style="font-size:11px;color:var(--muted);font-weight:400">(${pts.length} entregas \u00b7 ${r.distKm||'\u2014'}km)</span></h4>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${r.zonas.join(' + ')}</div>
+          <div class="progress" style="margin-top:5px"><div class="prog-fill" style="width:${pct}%;background:${corMot}"></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+          <span style="font-size:10px;background:var(--green-l);color:var(--green);padding:2px 8px;border-radius:20px;font-weight:500">\u2713 otimizado</span>
+          <button onclick="desotimizar('${r.motorista}')" style="font-size:10px;background:var(--red-l);color:var(--red);border:none;border-radius:20px;padding:2px 8px;cursor:pointer;font-family:var(--font)">\u21ba desotimizar</button>
+        </div>
+      </div>
+      <div class="zona-body" id="stops-ot-${ri}">
+        ${pts.map((p,oi)=>`
+          <div class="stop-item" draggable="true" data-ri="${ri}" data-oi="${oi}" style="cursor:grab"
+               ondragstart="dragStartOt(event,${ri},${oi})" ondragover="dragOverZona(event)"
+               ondrop="dropOt(event,${ri},${oi})" ondragend="dragEndZona(event)">
+            <span style="color:#ccc;margin-right:4px;font-size:14px">\u2837</span>
+            <span class="stop-num" style="color:${corMot}">${oi+1}</span>
+            <div class="stop-info-c">
+              <div class="stop-cliente">${p.cliente||'\u2014'}</div>
+              <div class="stop-end">${p.endereco}</div>
+              ${p.obs?`<div class="stop-obs">\u26a0 ${p.obs}</div>`:''}
+              ${p.valor?`<div style="font-size:11px;font-weight:600;color:var(--green);margin-top:2px;background:#e6f2df;padding:1px 7px;border-radius:10px;display:inline-block">R$ ${parseFloat(p.valor.toString().replace(',','.')).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`:''}
+            </div>
+            <select class="zona-select" style="font-size:10px;padding:3px 5px" onchange="moverEntregaOtimizada(${ri},${oi},this.value)">
+              <option value="">\u2194 mover</option>${optsEnt}
+            </select>
+          </div>`).join('')}
+      </div>`;
+    el.appendChild(div);
+  });
+}
+
+function exportarExcel(){
+  const rotas=window._rotasFundidas||[];
+  if(!rotas.length) return alert('Otimize as rotas primeiro.');
+  const linhas=[['Ordem','Pedido','Cliente','Bairro','Cidade','Motorista','Zona','Dist\u00e2ncia Total']];
+  rotas.forEach(r=>{
+    const pts=r.rotaOtimizada||r.pontos||[];
+    pts.forEach((p,i)=>{
+      linhas.push([i+1,p.pedido||'',p.cliente||'',p.bairro||'',p.cidade||'',r.motorista||'',p.zona?.nome||'',i===0?`${r.distKm||'\u2014'}km`:'']);
+    });
+    linhas.push(['','','','','','','','']);
+  });
+  const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(linhas);
+  ws['!cols']=[{wch:8},{wch:12},{wch:35},{wch:20},{wch:18},{wch:18},{wch:15},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws,'Rotas');
+  if(entregasReagendadas.length>0){
+    const linhasR=[['Pedido','Cliente','Bairro','Cidade','Endere\u00e7o','Motorista Sugerido','Motivo','Reagendado Em']];
+    entregasReagendadas.forEach(p=>{linhasR.push([p.pedido||'',p.cliente||'',p.bairro||'',p.cidade||'',p.enderecoDisplay||p.endereco||'',p.motoristaSugerido||'',p.reagendadoMotivo||'',p.reagendadoEm||'']);});
+    const wsR=XLSX.utils.aoa_to_sheet(linhasR);wsR['!cols']=[{wch:12},{wch:35},{wch:20},{wch:18},{wch:40},{wch:18},{wch:30},{wch:20}];
+    XLSX.utils.book_append_sheet(wb,wsR,'Reagendadas');
+  }
+  const hoje=new Date();
+  const data=String(hoje.getDate()).padStart(2,'0')+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+hoje.getFullYear();
+  XLSX.writeFile(wb,`Rotas_Copeli_${data}.xlsx`);
+}
+
+function wpp(){
+  const rotas=window._rotasFundidas||[];
+  if(!rotas.length) return alert('Otimize as rotas primeiro.');
+  const txt=rotas.map(r=>`*${r.motorista}* \u2014 ${(r.rotaOtimizada||r.pontos).length} entregas${r.distKm?' \u00b7 '+r.distKm+'km':''}\n`+
+    (r.rotaOtimizada||r.pontos).map((p,i)=>`${i+1}. ${p.cliente?p.cliente+' \u2014 ':''}${p.endereco}`).join('\n')
+  ).join('\n\n---\n\n');
+  window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
+}
+
+function maps(){
+  const rotas=window._rotasFundidas||[];
+  if(!rotas.length||!depGlobal) return alert('Otimize as rotas primeiro.');
+  const r=rotas[0];const pts=r.rotaOtimizada||r.pontos;
+  const wps=pts.map(p=>`${p.lat},${p.lng}`).join('/');
+  window.open(`https://www.google.com/maps/dir/${depGlobal.lat},${depGlobal.lng}/${wps}/${depGlobal.lat},${depGlobal.lng}`,'_blank');
+}
+// Decoder HERE Flexible Polyline (formato compacto da API)
+function decodeHerePolyline(encoded){
+  const CHARS='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  function decodeChar(c){return CHARS.indexOf(c);}
+  const precision=decodeChar(encoded[0]);
+  const factor=Math.pow(10,precision);
+  let i=3,lat=0,lng=0;
+  const coords=[];
+  while(i<encoded.length){
+    let r=0,s=0,b;
+    do{b=decodeChar(encoded[i++]);r|=(b&0x1F)<<s;s+=5;}while(b>=0x20);
+    lat+=((r&1)?~(r>>1):(r>>1));
+    r=0;s=0;
+    do{b=decodeChar(encoded[i++]);r|=(b&0x1F)<<s;s+=5;}while(b>=0x20);
+    lng+=((r&1)?~(r>>1):(r>>1));
+    coords.push([lat/factor,lng/factor]);
+  }
+  return coords;
+}
+
+</script>
+</body>
+</html>
