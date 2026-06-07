@@ -1005,23 +1005,23 @@ tbody td.muted { color: var(--muted); }
           </div>
         </div>
 
-        <!-- Aprovações pendentes -->
+        <!-- Horas Extras Aprovadas -->
         <div class="card">
           <div class="card-header">
-            <div class="card-title">📋 Histórico Solicitações</div>
+            <div class="card-title" style="color:var(--accent)">⏱ Horas Extras Aprovadas</div>
           </div>
           <div class="card-body" style="padding:0">
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Colaborador</th><th>Tipo</th><th>Início</th><th>Status</th></tr></thead>
-                <tbody id="tb-hist-ger"></tbody>
+                <thead><tr><th>Colaborador</th><th>Data</th><th>Horário</th><th>Status</th></tr></thead>
+                <tbody id="tb-he-aprov-ger"></tbody>
               </table>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Férias aprovadas e aguardando diretoria -->
+      <!-- Férias + Atrasos -->
       <div class="grid2">
         <div class="card">
           <div class="card-header">
@@ -1038,13 +1038,13 @@ tbody td.muted { color: var(--muted); }
         </div>
         <div class="card">
           <div class="card-header">
-            <div class="card-title">⏳ Aguardando Diretoria</div>
+            <div class="card-title" style="color:var(--warn)">🕐 Atrasos do Mês</div>
           </div>
           <div class="card-body" style="padding:0">
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Colaborador</th><th>Tipo</th><th>Início</th><th>Dias</th></tr></thead>
-                <tbody id="tb-aguard-dir-ger"></tbody>
+                <thead><tr><th>Colaborador</th><th>Atraso</th><th>Falta</th></tr></thead>
+                <tbody id="tb-atrasos-ger"></tbody>
               </table>
             </div>
           </div>
@@ -2152,22 +2152,23 @@ async function carregarDadosGerente() {
     `).join('');
   }
 
-  // Histórico completo
-  const tbHist = document.getElementById('tb-hist-ger');
-  const hist = [...solic].sort((a,b)=>new Date(b.criado_em)-new Date(a.criado_em)).slice(0,20);
-  if (!hist.length) { tbHist.innerHTML = empty('Nenhuma solicitação'); }
+  // H.E. aprovadas
+  const heAprov = solic.filter(s => s.tipo==='Autorização H.E.' && s.status==='Aprovado');
+  const tbHE = document.getElementById('tb-he-aprov-ger');
+  if (!heAprov.length) { tbHE.innerHTML = empty('Nenhuma H.E. aprovada'); }
   else {
-    tbHist.innerHTML = hist.map(s => `
+    tbHE.innerHTML = heAprov.map(s => `
       <tr>
-        <td>${s.nome_colab}</td>
-        <td>${s.tipo}</td>
+        <td><strong>${s.nome_colab}</strong></td>
         <td class="muted">${fmtData(s.data_inicio)}</td>
-        <td>${statusBadge(s.status)}</td>
+        <td class="muted" style="font-size:11px">${s.obs_colaborador||'—'}</td>
+        <td>${statusBadge('Aprovado')}</td>
       </tr>
     `).join('');
   }
 
-  // Férias aprovadas
+  // Férias aprovadas com alerta 3 dias
+  const hoje = new Date();
   const feriasAprov = solic.filter(s => s.tipo==='Férias' && s.status==='Aprovado');
   const tbFer = document.getElementById('tb-ferias-ger');
   if (!feriasAprov.length) { tbFer.innerHTML = empty('Nenhuma férias aprovada'); }
@@ -2175,30 +2176,34 @@ async function carregarDadosGerente() {
     tbFer.innerHTML = feriasAprov.map(s => {
       const dias = s.data_inicio && s.data_fim
         ? Math.round((new Date(s.data_fim)-new Date(s.data_inicio))/(1000*60*60*24))+1 : '—';
-      return `<tr>
-        <td><strong>${s.nome_colab}</strong></td>
-        <td>${fmtData(s.data_inicio)}</td>
+      const ini = new Date(s.data_inicio+'T00:00:00');
+      const diff = Math.round((ini-hoje)/(1000*60*60*24));
+      const alerta = diff >= 0 && diff <= 3;
+      const rowStyle = alerta ? 'background:rgba(245,166,35,.1);border-left:3px solid var(--warn)' : '';
+      const badge3d = alerta ? `<span style="font-size:10px;background:var(--warn);color:#000;padding:1px 6px;border-radius:4px;margin-left:4px;font-weight:700">🔔 ${diff===0?'HOJE':diff+'d'}</span>` : '';
+      return `<tr style="${rowStyle}">
+        <td><strong>${s.nome_colab}</strong>${badge3d}</td>
+        <td class="muted">${fmtData(s.data_inicio)}</td>
         <td>${dias} dias</td>
         <td>${statusBadge('Aprovado')}</td>
       </tr>`;
     }).join('');
   }
 
-  // Aguardando diretoria
-  const aguardDir = solic.filter(s => s.status==='Aguardando Diretoria');
-  const tbAguard = document.getElementById('tb-aguard-dir-ger');
-  if (!aguardDir.length) { tbAguard.innerHTML = empty('Nenhuma pendente na diretoria'); }
+  // Atrasos do mês
+  const tbAtr = document.getElementById('tb-atrasos-ger');
+  const comAtraso = _pontoGer.filter(c =>
+    (c.atraso && c.atraso !== '000:00') || (c.falta && c.falta !== '000:00')
+  ).sort((a,b) => hhmm2min(b.atraso||'0') - hhmm2min(a.atraso||'0'));
+  if (!comAtraso.length) { tbAtr.innerHTML = empty('Sem atrasos no período'); }
   else {
-    tbAguard.innerHTML = aguardDir.map(s => {
-      const dias = s.data_inicio && s.data_fim
-        ? Math.round((new Date(s.data_fim)-new Date(s.data_inicio))/(1000*60*60*24))+1 : '—';
-      return `<tr>
-        <td><strong>${s.nome_colab}</strong></td>
-        <td>${s.tipo}</td>
-        <td>${fmtData(s.data_inicio)}</td>
-        <td>${dias !== '—' ? dias+' dias' : '—'}</td>
-      </tr>`;
-    }).join('');
+    tbAtr.innerHTML = comAtraso.map(c => `
+      <tr>
+        <td><strong>${c.nome}</strong></td>
+        <td>${c.atraso && c.atraso !== '000:00' ? `<span style="color:var(--warn)">${c.atraso}</span>` : '—'}</td>
+        <td>${c.falta && c.falta !== '000:00' ? `<span style="color:var(--danger)">${c.falta}</span>` : '—'}</td>
+      </tr>
+    `).join('');
   }
 
   // Atestados
@@ -2305,29 +2310,65 @@ async function salvarConducao() {
 async function carregarPontoRH() {
   const mes = document.getElementById('rh-mes')?.value;
   if (!mes) return;
-  const [cons, decisoes] = await Promise.all([
+  const [cons, decisoes, solic] = await Promise.all([
     api('GET', `/api/ponto/consolidado?mes_ref=${mes}&empresa=${_rhEmpresaAtual}`),
-    api('GET', `/api/decisao-he?mes_ref=${mes}&empresa=${_rhEmpresaAtual}`)
+    api('GET', `/api/decisao-he?mes_ref=${mes}&empresa=${_rhEmpresaAtual}`),
+    api('GET', '/api/solicitacoes')
   ]);
   const decMap = {};
   decisoes.forEach(d => decMap[d.matricula] = d.decisao);
   _pontoRH = cons.map(c => ({ ...c, decisao: decMap[c.matricula] || 'Pendente' }));
 
+  // Mapa de férias aprovadas por matrícula → data inicio
+  const hoje = new Date();
+  const feriasMap = {};
+  solic.filter(s => s.tipo==='Férias' && s.status==='Aprovado' && s.data_inicio).forEach(s => {
+    const ini = new Date(s.data_inicio+'T00:00:00');
+    const diff = Math.round((ini - hoje)/(1000*60*60*24));
+    if (!feriasMap[s.matricula] || diff < feriasMap[s.matricula].diff) {
+      feriasMap[s.matricula] = { diff, data: s.data_inicio };
+    }
+  });
+
   const tb = document.getElementById('tb-ponto-rh');
   if (!_pontoRH.length) { tb.innerHTML = empty('Nenhum dado para este mês/empresa'); return; }
-  tb.innerHTML = _pontoRH.map(c => `
-    <tr>
+
+  tb.innerHTML = _pontoRH.map(c => {
+    // Alerta férias: faltam 3 dias ou menos
+    const fer = feriasMap[c.matricula];
+    const alertaFerias = fer && fer.diff >= 0 && fer.diff <= 3;
+    const rowStyle = alertaFerias
+      ? 'background:rgba(245,166,35,.1);border-left:3px solid var(--warn)'
+      : '';
+    const alertaBadge = alertaFerias
+      ? `<span style="font-size:10px;background:var(--warn);color:#000;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:700">🔔 Férias em ${fer.diff === 0 ? 'HOJE' : fer.diff+'d'}</span>`
+      : '';
+
+    // Dropdown decisão H.E. — só aparece se tiver H.E.
+    const temHE = c.hora_extra && c.hora_extra !== '000:00';
+    const decisaoCell = temHE ? `
+      <select onchange="salvarDecisaoHE('${c.matricula}','${c.empresa}','${c.mes_ref}',this.value)"
+        style="background:${c.decisao==='Banco'?'rgba(15,201,160,.15)':c.decisao==='Pagar'?'rgba(59,126,248,.15)':'var(--bg2)'};
+               border:1px solid ${c.decisao==='Banco'?'var(--accent2)':c.decisao==='Pagar'?'var(--accent)':'var(--border)'};
+               color:${c.decisao==='Banco'?'var(--accent2)':c.decisao==='Pagar'?'var(--accent)':'var(--muted)'};
+               padding:5px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;min-width:120px">
+        <option value="Pendente" ${c.decisao==='Pendente'?'selected':''}>⏳ Pendente</option>
+        <option value="Banco"    ${c.decisao==='Banco'   ?'selected':''}>🏦 Banco de Horas</option>
+        <option value="Pagar"    ${c.decisao==='Pagar'   ?'selected':''}>💰 Pagar H.E.</option>
+      </select>` : `<span style="color:var(--muted);font-size:12px">—</span>`;
+
+    return `<tr style="${rowStyle}">
       <td class="muted">${c.matricula}</td>
-      <td><strong>${c.nome}</strong></td>
-      <td class="muted">${c.cargo||'—'}</td>
+      <td><strong>${c.nome}</strong>${alertaBadge}</td>
+      <td class="muted" style="font-size:11px">${c.cargo||'—'}</td>
       <td>${c.horas_trab}</td>
-      <td>${c.hora_extra && c.hora_extra !== '000:00' ? `<span style="color:var(--accent)">${c.hora_extra}</span>` : '—'}</td>
+      <td>${temHE ? `<span style="color:var(--accent);font-weight:600">${c.hora_extra}</span>` : '—'}</td>
       <td>${c.atraso && c.atraso !== '000:00' ? `<span style="color:var(--warn)">${c.atraso}</span>` : '—'}</td>
       <td>${c.falta && c.falta !== '000:00' ? `<span style="color:var(--danger)">${c.falta}</span>` : '—'}</td>
       <td>${c.atestado && c.atestado !== '000:00' ? c.atestado : '—'}</td>
-      <td>${statusBadge(c.decisao)}</td>
-    </tr>
-  `).join('');
+      <td>${decisaoCell}</td>
+    </tr>`;
+  }).join('');
 }
 
 function exportarExcelRH() {
@@ -2986,35 +3027,6 @@ function abrirModalSyncDeak() {
 
 // ══════════════════════════════════════════
 // GESTÃO À VISTA
-// ══════════════════════════════════════════
-let _charts = {}; // guarda instâncias para destruir antes de recriar
-
-function destroyChart(id) {
-  if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
-}
-
-function hhmm2min(str) {
-  if (!str || str === '000:00' || str === '00:00') return 0;
-  const neg = str.startsWith('-');
-  const clean = str.replace('-','');
-  const [h,m] = clean.split(':').map(Number);
-  return (neg ? -1 : 1) * (h*60 + (m||0));
-}
-
-function min2hh(min) {
-  const abs = Math.abs(min);
-  const h = Math.floor(abs/60), m = abs%60;
-  return (min<0?'-':'') + String(h).padStart(3,'0') + ':' + String(m).padStart(2,'0');
-}
-
-const CHART_COLORS = {
-  he:    '#3b7ef8',
-  bh:    '#0fc9a0',
-  atr:   '#f5a623',
-  flt:   '#ef4444',
-  atst:  '#a78bfa',
-};
-
 // ══════════════════════════════════════════
 // GESTÃO À VISTA
 // ══════════════════════════════════════════
