@@ -614,7 +614,6 @@ function switchTab(tab,el){
   const resizer=document.getElementById('painel-resizer');
   if(resizer) resizer.style.display=(tab==='painel')?'block':'none';
   if(tab==='painel') renderizarPainel();
-  if(tab==='fila') filaAtualizar();
   if(mapa&&tab!=='fila'&&tab!=='aprovacao') setTimeout(()=>mapa.invalidateSize(),100);
 }
 
