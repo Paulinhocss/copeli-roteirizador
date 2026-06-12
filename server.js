@@ -16,7 +16,6 @@ app.get('/', (req, res) => {
   res.json({ status: 'ok', service: 'Copeli Roteirizador API v3 - HERE Maps' });
 });
 
-// Geocodificação via HERE — precisa por número
 async function buscarHERE(query) {
   try {
     const url = `https://geocode.search.hereapi.com/v1/geocode?q=${encodeURIComponent(query)}&lang=pt-BR&in=countryCode:BRA&apiKey=${HERE_KEY}`;
@@ -24,17 +23,12 @@ async function buscarHERE(query) {
     const d = await r.json();
     if (d.items && d.items.length > 0) {
       const item = d.items[0];
-      return {
-        lat: item.position.lat,
-        lng: item.position.lng,
-        display: item.address.label
-      };
+      return { lat: item.position.lat, lng: item.position.lng, display: item.address.label };
     }
   } catch(e) {}
   return null;
 }
 
-// ViaCEP para enriquecer o endereço com logradouro oficial
 async function buscarViaCEP(cep) {
   try {
     const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
@@ -59,12 +53,8 @@ app.get('/geocode', async (req, res) => {
   const ufStr = uf || 'SP';
   const tentativas = [];
 
-  // 1. CEP direto no HERE — mais preciso, evita ambiguidade de nome de rua
-  if (cepFmt.length === 8) {
-    tentativas.push(`${cepFmt}, Brasil`);
-  }
+  if (cepFmt.length === 8) tentativas.push(`${cepFmt}, Brasil`);
 
-  // 2. ViaCEP → endereço completo com número → HERE
   if (cepFmt.length === 8) {
     const via = await buscarViaCEP(cepFmt);
     if (via && via.logradouro) {
@@ -74,23 +64,18 @@ app.get('/geocode', async (req, res) => {
     }
   }
 
-  // 3. Endereço + bairro + cidade (mais específico que só cidade)
   const qLimpo = q.trim();
   if (qLimpo && bairro && cidadeStr) {
     if (numero) tentativas.push(`${qLimpo} ${numero}, ${bairro}, ${cidadeStr}, ${ufStr}, Brasil`);
     tentativas.push(`${qLimpo}, ${bairro}, ${cidadeStr}, ${ufStr}, Brasil`);
   }
 
-  // 4. Endereço + cidade
   if (qLimpo && cidadeStr) {
     if (numero) tentativas.push(`${qLimpo} ${numero}, ${cidadeStr}, ${ufStr}, Brasil`);
     tentativas.push(`${qLimpo}, ${cidadeStr}, ${ufStr}, Brasil`);
   }
 
-  // 5. Bairro + cidade
   if (bairro && cidadeStr) tentativas.push(`${bairro}, ${cidadeStr}, ${ufStr}, Brasil`);
-
-  // 6. Só cidade
   if (cidadeStr) tentativas.push(`${cidadeStr}, ${ufStr}, Brasil`);
 
   for (const query of tentativas) {
@@ -104,8 +89,6 @@ app.get('/geocode', async (req, res) => {
   res.json({ found: false, query: q });
 });
 
-// Rota proxy para HERE Routing API
-// Recebe: ?waypoints=lat,lng|lat,lng|lat,lng...
 app.get('/route', async (req, res) => {
   const { waypoints } = req.query;
   if (!waypoints) return res.status(400).json({ error: 'waypoints obrigatorio' });
@@ -118,7 +101,6 @@ app.get('/route', async (req, res) => {
 
     if (pts.length < 2) return res.status(400).json({ error: 'Minimo 2 waypoints' });
 
-    // Monta URL HERE: origin, vias intermediárias, destination
     let params = `origin=${pts[0].lat},${pts[0].lng}`;
     for (let i = 1; i < pts.length - 1; i++) {
       params += `&via=${pts[i].lat},${pts[i].lng}`;
@@ -131,7 +113,6 @@ app.get('/route', async (req, res) => {
     const d = await r.json();
 
     if (d.routes && d.routes[0]) {
-      // Decodifica HERE Flexible Polyline no servidor e retorna array de coords
       const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
       function decodeChar(c) { return CHARS.indexOf(c); }
       function decodePolyline(encoded) {
@@ -155,11 +136,14 @@ app.get('/route', async (req, res) => {
       }
 
       const allCoords = [];
+      let totalMeters = 0;
       d.routes[0].sections.forEach(s => {
         allCoords.push(...decodePolyline(s.polyline));
+        if (s.summary && s.summary.length) totalMeters += s.summary.length;
       });
 
-      res.json({ ok: true, coords: allCoords });
+      const distKm = Math.round(totalMeters / 100) / 10;
+      res.json({ ok: true, coords: allCoords, distKm });
     } else {
       res.json({ ok: false, error: 'HERE sem rota', detail: d });
     }
@@ -168,12 +152,11 @@ app.get('/route', async (req, res) => {
   }
 });
 
-
-// Fila Deak — stub (SQL será configurado quando rede estiver pronta)
+// Fila Deak - será ativado quando SQL estiver configurado
 app.get('/fila', async (req, res) => {
-  res.json({ ok: false, error: 'Conexao com banco Deak nao configurada ainda. Configure DB_HOST, DB_USER, DB_PASSWORD no Railway.' });
+  res.json({ ok: false, error: 'Conexao com banco Deak nao configurada ainda.' });
 });
 
 app.listen(PORT, () => {
-  console.log(`Copeli Roteirizador API v3 - HERE Maps rodando na porta ${PORT}`);
+  console.log(`Copeli Roteirizador API v3 rodando na porta ${PORT}`);
 });
