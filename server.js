@@ -1,14 +1,12 @@
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
-const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
 const HERE_KEY = '4YEO9FLs9MHJE9eDar3MofG9qyF1pCaAWZTSAA6KCfM';
 
@@ -157,14 +155,11 @@ app.get('/route', async (req, res) => {
       }
 
       const allCoords = [];
-      let totalMeters = 0;
       d.routes[0].sections.forEach(s => {
         allCoords.push(...decodePolyline(s.polyline));
-        if (s.summary && s.summary.length) totalMeters += s.summary.length;
       });
 
-      const distKm = Math.round(totalMeters / 100) / 10; // metros → km com 1 decimal
-      res.json({ ok: true, coords: allCoords, distKm });
+      res.json({ ok: true, coords: allCoords });
     } else {
       res.json({ ok: false, error: 'HERE sem rota', detail: d });
     }
@@ -173,53 +168,12 @@ app.get('/route', async (req, res) => {
   }
 });
 
-// Serve index.html para qualquer rota não encontrada (SPA)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+
+// Fila Deak — stub (SQL será configurado quando rede estiver pronta)
+app.get('/fila', async (req, res) => {
+  res.json({ ok: false, error: 'Conexao com banco Deak nao configurada ainda. Configure DB_HOST, DB_USER, DB_PASSWORD no Railway.' });
 });
 
 app.listen(PORT, () => {
   console.log(`Copeli Roteirizador API v3 - HERE Maps rodando na porta ${PORT}`);
-});
-
-// ─── FILA DEAK — SQL Server ────────────────────────────────────────────────
-const sql = require('mssql');
-
-const dbConfig = {
-  server:   process.env.DB_HOST || '10.0.0.6',
-  port:     parseInt(process.env.DB_PORT || '1433'),
-  database: process.env.DB_NAME || 'deak',
-  user:     process.env.DB_USER || '',
-  password: process.env.DB_PASSWORD || '',
-  options: {
-    encrypt: false,
-    trustServerCertificate: true,
-    requestTimeout: 30000,
-    connectTimeout: 15000,
-  }
-};
-
-let pool = null;
-
-async function getPool() {
-  if (!pool) pool = await sql.connect(dbConfig);
-  return pool;
-}
-
-app.get('/fila', async (req, res) => {
-  try {
-    const p = await getPool();
-    const result = await p.request().query(`
-      SELECT TOP 500
-        Empresa, CodVendedor_ID, CodOrcamento_ID, NumNF,
-        Nome, NomeFantasia, DataEntrega, Observacoes,
-        TipoEnt, ENDENT, BAIENT, CIDENT, CEPENT, NumEnt,
-        Valor_Pedido, Prioridade
-      FROM vw_copeli_entregas_otimizada
-      ORDER BY DataEntrega, CodOrcamento_ID
-    `);
-    res.json({ ok: true, rows: result.recordset });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
 });
