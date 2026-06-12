@@ -1,6 +1,6 @@
 {
   "name": "copeli-roteirizador-backend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Backend proxy para geocodificacao - Copeli",
   "main": "servidor.js",
   "scripts": {
