@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 const path = require('path');
-const sql = require('mssql');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -174,69 +173,6 @@ app.get('/route', async (req, res) => {
   }
 });
 
-// ─── FILA DEAK — SQL Server ────────────────────────────────────────────────
-const dbConfig = {
-  server: process.env.DB_HOST || '10.0.0.6',
-  port: parseInt(process.env.DB_PORT || '1433'),
-  database: process.env.DB_NAME || 'Deak',
-  user: process.env.DB_USER || '',
-  password: process.env.DB_PASSWORD || '',
-  options: {
-    encrypt: false,
-    trustServerCertificate: true
-  }
-};
-
-let pool = null;
-
-async function getPool() {
-  if (!pool) {
-    pool = await sql.connect(dbConfig);
-  }
-  return pool;
-}
-
-app.get('/fila', async (req, res) => {
-  try {
-    const p = await getPool();
-
-    const result = await p.request().query(`
-      SELECT TOP 500
-        Empresa,
-        CodVendedor_ID,
-        CodOrcamento_ID,
-        NumNF,
-        Nome,
-        NomeFantasia,
-        DataEntrega,
-        Observacoes,
-        TipoEnt,
-        ENDENT,
-        BAIENT,
-        CIDENT,
-        CEPENT,
-        NumEnt,
-        Valor_Pedido,
-        Prioridade
-      FROM vw_copeli_entregas_otimizada
-      ORDER BY DataEntrega, CodOrcamento_ID
-    `);
-
-    res.json({
-      ok: true,
-      rows: result.recordset
-    });
-
-  } catch (e) {
-    console.error(e);
-
-    res.status(500).json({
-      ok: false,
-      error: e.message
-    });
-  }
-});
-
 // Serve index.html para qualquer rota não encontrada (SPA)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -244,4 +180,46 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Copeli Roteirizador API v3 - HERE Maps rodando na porta ${PORT}`);
+});
+
+// ─── FILA DEAK — SQL Server ────────────────────────────────────────────────
+const sql = require('mssql');
+
+const dbConfig = {
+  server:   process.env.DB_HOST || '10.0.0.6',
+  port:     parseInt(process.env.DB_PORT || '1433'),
+  database: process.env.DB_NAME || 'deak',
+  user:     process.env.DB_USER || '',
+  password: process.env.DB_PASSWORD || '',
+  options: {
+    encrypt: false,
+    trustServerCertificate: true,
+    requestTimeout: 30000,
+    connectTimeout: 15000,
+  }
+};
+
+let pool = null;
+
+async function getPool() {
+  if (!pool) pool = await sql.connect(dbConfig);
+  return pool;
+}
+
+app.get('/fila', async (req, res) => {
+  try {
+    const p = await getPool();
+    const result = await p.request().query(`
+      SELECT TOP 500
+        Empresa, CodVendedor_ID, CodOrcamento_ID, NumNF,
+        Nome, NomeFantasia, DataEntrega, Observacoes,
+        TipoEnt, ENDENT, BAIENT, CIDENT, CEPENT, NumEnt,
+        Valor_Pedido, Prioridade
+      FROM vw_copeli_entregas_otimizada
+      ORDER BY DataEntrega, CodOrcamento_ID
+    `);
+    res.json({ ok: true, rows: result.recordset });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
