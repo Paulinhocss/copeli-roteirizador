@@ -111,27 +111,6 @@ textarea{resize:vertical;min-height:100px;line-height:1.6}
 #painel-resizer:hover,#painel-resizer.dragging{background:var(--blue)}
 #painel-resizer::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:3px;height:40px;background:rgba(0,0,0,.15);border-radius:2px}
 #tab-painel.active~#painel-resizer{display:block}
-
-.fila-table{width:100%;border-collapse:collapse;font-size:11px}
-.fila-table th{background:var(--bg);padding:8px 10px;text-align:left;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid var(--border);white-space:nowrap}
-.fila-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
-.fila-table tbody tr:hover td{background:#fafaf8}
-.fila-chk{width:14px;height:14px;cursor:pointer;accent-color:var(--blue)}
-.badge-emp{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600}
-.badge-emp.copeli{background:#e8f0fb;color:#1a5fa8}
-.badge-emp.izaura{background:#fdf3e0;color:#8a5a00}
-.badge-emp.cpainel{background:#eeedfe;color:#6b3ab8}
-.aprov-card{background:white;border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden}
-.aprov-head{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer}
-.aprov-head:hover{background:#fafaf8}
-.aprov-body{padding:14px;border-top:1px solid var(--border);display:none}
-.aprov-body.open{display:block}
-.aprov-field{margin-bottom:10px}
-.aprov-field label{display:block;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
-.aprov-field input,.aprov-field select,.aprov-field textarea{width:100%;font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-family:var(--font);background:var(--bg)}
-.aprov-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.full-tab-content{flex:1;overflow-y:auto;padding:16px 24px;background:var(--bg);display:none;flex-direction:column;width:100%}
-.full-tab-content.active{display:flex}
 </style>
 </head>
 <body>
@@ -176,8 +155,6 @@ textarea{resize:vertical;min-height:100px;line-height:1.6}
       <button class="tab" onclick="switchTab('geocode',this)">Geocodificação</button>
       <button class="tab" onclick="switchTab('zonas',this)">Zonas</button>
       <button class="tab" onclick="switchTab('painel',this)">📋 Painel</button>
-      <button class="tab" onclick="switchTab('fila',this)">📥 Fila Deak</button>
-      <button class="tab" onclick="switchTab('aprovacao',this)">✅ Aprovação</button>
     </nav>
   </div>
   <div class="main-area">
@@ -222,7 +199,7 @@ textarea{resize:vertical;min-height:100px;line-height:1.6}
         <button class="btn" id="btn-cancelar" onclick="cancelar()" style="display:none;width:auto;padding:9px 14px;margin-bottom:0;color:var(--red);border-color:var(--red)">✕</button>
       </div>
       <button class="btn" onclick="limpar()" style="color:var(--red);border-color:var(--red);margin-bottom:7px">✕ Limpar</button>
-      <div class="info info-green" style="font-size:10px">✓ Conectado ao servidor</div>
+      <div class="info info-green" style="font-size:10px">✓ Backend: copeli-roteirizador-production.up.railway.app</div>
     </div>
     <div id="tab-geocode" class="tab-content">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -338,143 +315,6 @@ textarea{resize:vertical;min-height:100px;line-height:1.6}
       </table>
     </div>
   </div>
-
-  <!-- ═══ TAB FILA DEAK ═══════════════════════════════════════════════ -->
-  <div id="tab-fila" class="full-tab-content">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <div>
-        <div style="font-size:15px;font-weight:600">📥 Fila de Transportes — Deak</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">Todos os pedidos aptos para entrega</div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button onclick="filaSelecionarTodos()" style="font-size:11px;padding:7px 13px;border:1px solid var(--border);border-radius:7px;background:white;cursor:pointer;font-family:var(--font)">☑ Selecionar todos</button>
-        <button onclick="filaEnviarRoteirizador()" style="font-size:11px;padding:7px 14px;background:var(--blue);color:white;border:none;border-radius:7px;cursor:pointer;font-family:var(--font);font-weight:500">→ Enviar para Roteirizador &nbsp;<span id="fila-count-sel" style="background:white;color:var(--blue);border-radius:10px;padding:1px 7px;font-weight:700">0</span></button>
-      </div>
-    </div>
-    <!-- Stats -->
-    <div style="display:flex;gap:10px;margin-bottom:12px">
-      <div style="background:white;border:1px solid var(--border);border-radius:8px;padding:8px 16px;text-align:center;min-width:80px">
-        <div style="font-size:22px;font-weight:600">20</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Pedidos</div>
-      </div>
-      <div style="background:white;border:1px solid var(--border);border-radius:8px;padding:8px 16px;text-align:center;min-width:80px">
-        <div style="font-size:22px;font-weight:600">35</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Notas Fiscais</div>
-      </div>
-      <div style="background:white;border:1px solid var(--border);border-radius:8px;padding:8px 16px;text-align:center">
-        <div style="font-size:22px;font-weight:600;color:var(--green)">R$ 487.543</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Valor Total</div>
-      </div>
-      <div style="background:var(--blue-l);border:1px solid var(--blue);border-radius:8px;padding:8px 16px;text-align:center;min-width:80px">
-        <div style="font-size:22px;font-weight:600;color:var(--blue)" id="fila-stat-sel">0</div><div style="font-size:10px;color:var(--blue);text-transform:uppercase">Selecionados</div>
-      </div>
-    </div>
-    <!-- Filtros -->
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input id="fila-search" type="text" placeholder="🔍 Buscar pedido, cliente, vendedor..." style="flex:1;font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-family:var(--font);background:white"/>
-      <select style="font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-family:var(--font);background:white">
-        <option>Todas empresas</option><option>COPELI</option><option>IZAURA</option><option>CPAINEL</option>
-      </select>
-      <input type="date" style="font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-family:var(--font);background:white"/>
-      <button onclick="filaAtualizar()" class="btn-atualizar" style="font-size:11px;padding:7px 14px;background:var(--green);color:white;border:none;border-radius:7px;cursor:pointer;font-family:var(--font);font-weight:500">⟳ Atualizar da API</button>
-    </div>
-    <!-- Tabela -->
-    <div style="background:white;border:1px solid var(--border);border-radius:8px;overflow:auto;flex:1">
-      <table class="fila-table">
-        <thead>
-          <tr>
-            <th style="width:36px"><input type="checkbox" onchange="filaMasterCheck(this)" style="accent-color:var(--blue);width:14px;height:14px"/></th>
-            <th>Pedido</th><th>NF</th><th>Empresa</th><th>Cliente</th>
-            <th>Data Entrega</th><th>Cidade</th><th>Endereço</th>
-            <th>Valor</th><th>Vendedor</th><th>Prioridade</th><th>Observação</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td><input type="checkbox" class="fila-chk" onchange="filaContarSel()"/></td><td style="font-weight:600;color:var(--blue)">#795183</td><td style="color:var(--muted);font-size:10px">—</td><td><span class="badge-emp copeli">COPELI</span></td><td style="font-weight:500;min-width:180px">INSTITUTO DR. VLASSIOS MARANGOS JUNIOR SP LTDA</td><td style="white-space:nowrap;color:#1a5fa8">12/06/2026</td><td>OSASCO</td><td style="font-size:10px;color:var(--muted);min-width:160px">Rua Aurora Soares Barbosa, 153</td><td style="font-weight:600;color:var(--green);white-space:nowrap">R$ 1.664,00</td><td style="font-size:10px">JULIANOGOM</td><td><span style="font-size:10px;background:var(--blue-l);color:var(--blue);padding:2px 7px;border-radius:10px">ENTREGA PRÓPRIA</span></td><td style="font-size:10px;color:var(--amber);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="CABO OK...ENTREGA SEXTA-FEIRA">CABO OK...ENTREGA SEXTA-FEIRA</td></tr>
-          <tr><td><input type="checkbox" class="fila-chk" onchange="filaContarSel()"/></td><td style="font-weight:600;color:var(--blue)">#795598</td><td style="color:var(--muted);font-size:10px">—</td><td><span class="badge-emp copeli">COPELI</span></td><td style="font-weight:500">CONSTRUTORA ROY LTDA</td><td style="white-space:nowrap;color:#1a5fa8">12/06/2026</td><td>DIADEMA</td><td style="font-size:10px;color:var(--muted)">Av Afranio Peixoto, 427 - Eldorado</td><td style="font-weight:600;color:var(--green);white-space:nowrap">R$ 38.420,00</td><td style="font-size:10px">KARINAMORA</td><td><span style="font-size:10px;background:var(--blue-l);color:var(--blue);padding:2px 7px;border-radius:10px">ENTREGA PRÓPRIA</span></td><td style="font-size:10px;color:var(--amber)" title="CABO OK...OBRA 250">CABO OK...OBRA 250</td></tr>
-          <tr style="background:#fffbf2"><td><input type="checkbox" class="fila-chk" onchange="filaContarSel()"/></td><td style="font-weight:600;color:var(--blue)">#758386</td><td style="color:var(--muted);font-size:10px">—</td><td><span class="badge-emp izaura">IZAURA</span></td><td style="font-weight:500">CA249 EMPREENDIMENTOS E PARTICIPACOES LTDA</td><td style="white-space:nowrap;color:#1a5fa8">06/10/2026</td><td>SÃO PAULO</td><td style="font-size:10px;color:var(--muted)">R Clodomiro Amazonas, 249 - V.N.Conceição</td><td style="font-weight:600;color:var(--green);white-space:nowrap">R$ 71.929,17</td><td style="font-size:10px">LUCAS VILL</td><td><span style="font-size:10px;background:var(--blue-l);color:var(--blue);padding:2px 7px;border-radius:10px">ENTREGA PRÓPRIA</span></td><td style="font-size:10px;color:var(--muted)">—</td></tr>
-          <tr style="background:#fffbf2"><td><input type="checkbox" class="fila-chk" onchange="filaContarSel()"/></td><td style="color:var(--blue);padding-left:24px">↳ #758386</td><td style="color:var(--blue);font-size:10px;font-weight:700">NF 1792</td><td><span class="badge-emp izaura">IZAURA</span></td><td style="color:var(--muted);font-size:11px">CA249 EMPREENDIMENTOS E PARTICIPACOES LTDA</td><td style="white-space:nowrap;color:var(--muted);font-size:10px">06/10/2026</td><td style="color:var(--muted);font-size:10px">SÃO PAULO</td><td style="font-size:10px;color:var(--muted)">R Clodomiro Amazonas, 249</td><td style="color:var(--muted);font-size:10px">—</td><td style="font-size:10px">LUCAS VILL</td><td><span style="font-size:10px;background:#f0efe9;color:var(--muted);padding:2px 7px;border-radius:10px">ENTREGA PRÓPRIA</span></td><td style="font-size:10px;color:var(--muted)">—</td></tr>
-          <tr style="background:#fffbf2"><td><input type="checkbox" class="fila-chk" onchange="filaContarSel()"/></td><td style="color:var(--blue);padding-left:24px">↳ #758386</td><td style="color:var(--blue);font-size:10px;font-weight:700">NF 1795</td><td><span class="badge-emp izaura">IZAURA</span></td><td style="color:var(--muted);font-size:11px">CA249 EMPREENDIMENTOS E PARTICIPACOES LTDA</td><td style="white-space:nowrap;color:var(--muted);font-size:10px">06/10/2026</td><td style="color:var(--muted);font-size:10px">SÃO PAULO</td><td style="font-size:10px;color:var(--muted)">R Clodomiro Amazonas, 249</td><td style="color:var(--muted);font-size:10px">—</td><td style="font-size:10px">LUCAS VILL</td><td><span style="font-size:10px;background:#f0efe9;color:var(--muted);padding:2px 7px;border-radius:10px">ENTREGA PRÓPRIA</span></td><td style="font-size:10px;color:var(--muted)">—</td></tr>
-          <tr style="background:#fffbf2"><td><input type="checkbox" class="fila-chk" onchange="filaContarSel()"/></td><td style="color:var(--blue);padding-left:24px">↳ #758386</td><td style="color:var(--blue);font-size:10px;font-weight:700">NF 1796</td><td><span class="badge-emp izaura">IZAURA</span></td><td style="color:var(--muted);font-size:11px">CA249 EMPREENDIMENTOS E PARTICIPACOES LTDA</td><td style="white-space:nowrap;color:var(--muted);font-size:10px">06/10/2026</td><td style="color:var(--muted);font-size:10px">SÃO PAULO</td><td style="font-size:10px;color:var(--muted)">R Clodomiro Amazonas, 249</td><td style="color:var(--muted);font-size:10px">—</td><td style="font-size:10px">LUCAS VILL</td><td><span style="font-size:10px;background:#f0efe9;color:var(--muted);padding:2px 7px;border-radius:10px">ENTREGA PRÓPRIA</span></td><td style="font-size:10px;color:var(--muted)">—</td></tr>
-          <tr><td><input type="checkbox" class="fila-chk" onchange="filaContarSel()"/></td><td style="font-weight:600;color:var(--blue)">#795729</td><td style="color:var(--muted);font-size:10px">—</td><td><span class="badge-emp copeli">COPELI</span></td><td style="font-weight:500">ARB BRASIL S/A.</td><td style="white-space:nowrap;color:#1a5fa8">12/06/2026</td><td>BARUERI</td><td style="font-size:10px;color:var(--muted)">Calcada das Margaridas, 163</td><td style="font-weight:600;color:var(--green);white-space:nowrap">R$ 14.352,33</td><td style="font-size:10px">VITOR DAS</td><td><span style="font-size:10px;background:var(--blue-l);color:var(--blue);padding:2px 7px;border-radius:10px">ENTREGA PRÓPRIA</span></td><td style="font-size:10px;color:var(--muted)">—</td></tr>
-          <tr><td><input type="checkbox" class="fila-chk" onchange="filaContarSel()"/></td><td style="font-weight:600;color:var(--blue)">#767573</td><td style="color:var(--muted);font-size:10px">—</td><td><span class="badge-emp cpainel">CPAINEL</span></td><td style="font-weight:500">SH EMPREENDIMENTOS IMOBILIARIOS SPE LTDA</td><td style="white-space:nowrap;color:#1a5fa8">13/07/2026</td><td>SÃO PAULO</td><td style="font-size:10px;color:var(--muted)">Av Queiroz Filho, 1560 - V.Hamburguesa</td><td style="font-weight:600;color:var(--green);white-space:nowrap">R$ 27.077,50</td><td style="font-size:10px">LUCAS VILL</td><td><span style="font-size:10px;background:var(--blue-l);color:var(--blue);padding:2px 7px;border-radius:10px">ENTREGA PRÓPRIA</span></td><td style="font-size:10px;color:var(--muted)">—</td></tr>
-          <tr style="background:#fffbf2"><td><input type="checkbox" class="fila-chk" onchange="filaContarSel()"/></td><td style="color:var(--blue);padding-left:24px">↳ #767573</td><td style="color:var(--blue);font-size:10px;font-weight:700">NF 6204</td><td><span class="badge-emp cpainel">CPAINEL</span></td><td style="color:var(--muted);font-size:11px">SH EMPREENDIMENTOS IMOBILIARIOS SPE LTDA</td><td style="white-space:nowrap;color:var(--muted);font-size:10px">13/07/2026</td><td style="color:var(--muted);font-size:10px">SÃO PAULO</td><td style="font-size:10px;color:var(--muted)">Av Queiroz Filho, 1560</td><td style="color:var(--muted);font-size:10px">—</td><td style="font-size:10px">LUCAS VILL</td><td><span style="font-size:10px;background:#f0efe9;color:var(--muted);padding:2px 7px;border-radius:10px">ENTREGA PRÓPRIA</span></td><td style="font-size:10px;color:var(--muted)">—</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;padding:6px;background:var(--amber-l);border-radius:6px;color:var(--amber)">⚠ Layout de visualização — dados simulados · Integração com API Deak em desenvolvimento</div>
-  </div>
-
-  <!-- ═══ TAB APROVAÇÃO ════════════════════════════════════════════════ -->
-  <div id="tab-aprovacao" class="full-tab-content">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div>
-        <div style="font-size:15px;font-weight:600">✅ Aprovação no Deak</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">Confirme pedido a pedido após a roteirização</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <span style="font-size:11px;background:var(--amber-l);color:var(--amber);padding:5px 14px;border-radius:20px;font-weight:500">⏳ 3 pendentes</span>
-        <span style="font-size:11px;background:var(--green-l);color:var(--green);padding:5px 14px;border-radius:20px;font-weight:500">✓ 2 aprovados</span>
-      </div>
-    </div>
-    <div style="max-width:800px">
-      <!-- Pendente 1 -->
-      <div class="aprov-card" style="border-left:4px solid var(--amber)">
-        <div class="aprov-head" onclick="toggleAprovCard(this)">
-          <div style="width:10px;height:10px;border-radius:50%;background:var(--amber);flex-shrink:0"></div>
-          <div style="flex:1"><div style="font-size:13px;font-weight:600">#795183 — INSTITUTO DR. VLASSIOS MARANGOS JUNIOR SP LTDA</div><div style="font-size:11px;color:var(--muted);margin-top:2px">12/06/2026 · OSASCO · Motorista: Hugo Soares · R$ 1.664,00</div></div>
-          <span style="font-size:10px;background:var(--amber-l);color:var(--amber);padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">⏳ Pendente</span>
-          <span style="font-size:18px;color:var(--muted);margin-left:8px" id="arr-1">▾</span>
-        </div>
-        <div class="aprov-body open">
-          <div style="background:var(--amber-l);border-radius:7px;padding:8px 12px;margin-bottom:14px;font-size:11px;color:var(--amber)">⚠ Preencha os campos abaixo para registrar a aprovação no Deak</div>
-          <div class="aprov-grid">
-            <div class="aprov-field"><label>Campo 1 (a definir)</label><input placeholder="Aguardando log da tela Deak..."/></div>
-            <div class="aprov-field"><label>Campo 2 (a definir)</label><input placeholder="Aguardando log da tela Deak..."/></div>
-            <div class="aprov-field"><label>Campo 3 (a definir)</label><select><option>— Selecionar —</option></select></div>
-            <div class="aprov-field"><label>Campo 4 (a definir)</label><input placeholder="Aguardando log da tela Deak..."/></div>
-          </div>
-          <div class="aprov-field"><label>Observação</label><textarea rows="2" placeholder="Observação para registrar no Deak..."></textarea></div>
-          <div style="display:flex;gap:8px;margin-top:6px">
-            <button style="flex:1;padding:10px;background:var(--green);color:white;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">✓ Aprovar no Deak</button>
-            <button style="padding:10px 16px;background:var(--red-l);color:var(--red);border:1px solid var(--red);border-radius:7px;font-size:12px;cursor:pointer;font-family:var(--font)">✕ Rejeitar</button>
-          </div>
-        </div>
-      </div>
-      <!-- Pendente 2 -->
-      <div class="aprov-card" style="border-left:4px solid var(--amber)">
-        <div class="aprov-head" onclick="toggleAprovCard(this)">
-          <div style="width:10px;height:10px;border-radius:50%;background:var(--amber);flex-shrink:0"></div>
-          <div style="flex:1"><div style="font-size:13px;font-weight:600">#795598 — CONSTRUTORA ROY LTDA</div><div style="font-size:11px;color:var(--muted);margin-top:2px">12/06/2026 · DIADEMA · Motorista: Daniel · R$ 38.420,00</div></div>
-          <span style="font-size:10px;background:var(--amber-l);color:var(--amber);padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">⏳ Pendente</span>
-          <span style="font-size:18px;color:var(--muted);margin-left:8px">▸</span>
-        </div>
-        <div class="aprov-body">
-          <div class="aprov-grid">
-            <div class="aprov-field"><label>Campo 1 (a definir)</label><input placeholder="Aguardando log da tela Deak..."/></div>
-            <div class="aprov-field"><label>Campo 2 (a definir)</label><input placeholder="Aguardando log da tela Deak..."/></div>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:6px">
-            <button style="flex:1;padding:10px;background:var(--green);color:white;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">✓ Aprovar no Deak</button>
-            <button style="padding:10px 16px;background:var(--red-l);color:var(--red);border:1px solid var(--red);border-radius:7px;font-size:12px;cursor:pointer;font-family:var(--font)">✕ Rejeitar</button>
-          </div>
-        </div>
-      </div>
-      <!-- Aprovado -->
-      <div class="aprov-card" style="border-left:4px solid var(--green);opacity:0.75">
-        <div class="aprov-head">
-          <div style="width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
-          <div style="flex:1"><div style="font-size:13px;font-weight:600">#795729 — ARB BRASIL S/A.</div><div style="font-size:11px;color:var(--muted);margin-top:2px">12/06/2026 · BARUERI · Motorista: Alvaro · R$ 14.352,33</div></div>
-          <span style="font-size:10px;background:var(--green-l);color:var(--green);padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">✓ Aprovado</span>
-        </div>
-      </div>
-      <div class="aprov-card" style="border-left:4px solid var(--green);opacity:0.75">
-        <div class="aprov-head">
-          <div style="width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
-          <div style="flex:1"><div style="font-size:13px;font-weight:600">#795751 — CONDOMINIO EDIFICIO NY/SP</div><div style="font-size:11px;color:var(--muted);margin-top:2px">15/06/2026 · SÃO PAULO · Motorista: Bruno · R$ 977,31</div></div>
-          <span style="font-size:10px;background:var(--green-l);color:var(--green);padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">✓ Aprovado</span>
-        </div>
-      </div>
-    </div>
-    <div style="font-size:11px;color:var(--amber);text-align:center;margin-top:12px;padding:6px;background:var(--amber-l);border-radius:6px;max-width:800px">⚠ Layout de visualização — campos de aprovação serão definidos após análise do log da tela Deak</div>
-  </div>
   <div id="painel-resizer" title="Arraste para redimensionar"></div>
   <div id="map"></div>
   </div><!-- /main-area -->
@@ -540,7 +380,7 @@ window.addEventListener('load',()=>{
   setTimeout(()=>document.getElementById('login-user').focus(),100);
 });
 
-const API = window.location.origin; // Mesmo servidor (Railway serve frontend + backend)
+const API = 'https://copeli-roteirizador-production.up.railway.app';
 
 const ZONAS = [
   {id:'oeste',    nome:'Zona Oeste',       lat:-23.5329, lng:-46.7500, cor:'#e67e00', corL:'#fff3e0'},
@@ -604,17 +444,21 @@ function switchTab(tab,el){
   el.classList.add('active');
   const sidebar=document.querySelector('.sidebar');
   const mapEl=document.getElementById('map');
-  const fullWidthTabs=['painel','fila','aprovacao'];
-  const isFull=fullWidthTabs.includes(tab);
-  sidebar.style.display=isFull?'none':'flex';
-  mapEl.style.display=(tab==='fila'||tab==='aprovacao')?'none':'block';
-  document.querySelectorAll('.tab-content,.full-tab-content').forEach(t=>{t.classList.remove('active');t.style.display='none';});
-  const tabEl=document.getElementById('tab-'+tab);
-  if(tabEl){tabEl.classList.add('active');tabEl.style.display='flex';}
-  const resizer=document.getElementById('painel-resizer');
-  if(resizer) resizer.style.display=(tab==='painel')?'block':'none';
-  if(tab==='painel') renderizarPainel();
-  if(mapa&&tab!=='fila'&&tab!=='aprovacao') setTimeout(()=>mapa.invalidateSize(),100);
+  if(tab==='painel'){
+    sidebar.style.display='none';
+    mapEl.style.display='block';
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    document.getElementById('tab-painel').classList.add('active');
+    renderizarPainel();
+    if(mapa) setTimeout(()=>mapa.invalidateSize(),100);
+  } else {
+    sidebar.style.display='flex';
+    mapEl.style.display='block';
+    document.getElementById('tab-painel').classList.remove('active');
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    document.getElementById('tab-'+tab).classList.add('active');
+    if(mapa) setTimeout(()=>mapa.invalidateSize(),80);
+  }
 }
 
 function switchInput(mode,el){
@@ -1743,204 +1587,6 @@ function popupAgendamento(p){
   if(p.obs) h+='<br><span style="font-size:10px;color:#8a5a00">⚠ '+p.obs+'</span>';
   if(p.valor) h+='<br><span style="font-size:11px;font-weight:600;color:#2d6b0e">R$ '+parseFloat(p.valor.toString().replace(',','.')).toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span>';
   return h;
-}
-
-// ─── FILA DEAK ─────────────────────────────────────────────────────────
-function filaContarSel(){
-  const n=document.querySelectorAll('.fila-chk:checked').length;
-  const c=document.getElementById('fila-count-sel');
-  const s=document.getElementById('fila-stat-sel');
-  if(c) c.textContent=n;
-  if(s) s.textContent=n;
-}
-function filaMasterCheck(cb){
-  document.querySelectorAll('.fila-chk').forEach(c=>c.checked=cb.checked);
-  filaContarSel();
-}
-function filaSelecionarTodos(){
-  const total=document.querySelectorAll('.fila-chk').length;
-  const sel=document.querySelectorAll('.fila-chk:checked').length;
-  const check=sel<total;
-  document.querySelectorAll('.fila-chk').forEach(c=>c.checked=check);
-  filaContarSel();
-}
-function filaEnviarRoteirizador(){
-  const checks=document.querySelectorAll('.fila-chk:checked');
-  if(!checks.length){alert('Selecione ao menos um pedido.');return;}
-
-  const pedidosSelecionados=new Set();
-  checks.forEach(c=>{ const id=(c.dataset.id||'').split('-nf')[0]; pedidosSelecionados.add(id); });
-
-  const filaRows=window._filaData||[];
-  // Pega uma linha por pedido (a sem NF, ou a primeira)
-  const linhasSelecionadas=[];
-  pedidosSelecionados.forEach(id=>{
-    const linhas=filaRows.filter(r=>String(r.CodOrcamento_ID)===String(id));
-    const main=linhas.find(r=>!r.NumNF)||linhas[0];
-    if(main) linhasSelecionadas.push(main);
-  });
-
-  if(!linhasSelecionadas.length){alert('Nenhum pedido principal encontrado.');return;}
-
-  // Converte para formato entregas (mesmo do CSV)
-  const novasEntregas=linhasSelecionadas.map(r=>{
-    const prefMap={'R':'Rua','AV':'Avenida','AVENIDA':'Avenida','AL':'Alameda','ALAMEDA':'Alameda',
-      'EST':'Estrada','ESTRADA':'Estrada','TV':'Travessa','TRAV':'Travessa','TRAVESSA':'Travessa',
-      'PC':'Praca','ROD':'Rodovia','RODOVIA':'Rodovia'};
-    const tipoEnt=(r.TipoEnt||'').toString().trim();
-    let ruaBruta=(r.ENDENT||'').toString().trim();
-    const primeiraP=ruaBruta.split(' ')[0].toUpperCase();
-    if(tipoEnt&&!prefMap[primeiraP]){
-      const tipoExp=prefMap[tipoEnt.toUpperCase()]||tipoEnt;
-      ruaBruta=tipoExp+' '+ruaBruta;
-    } else if(prefMap[primeiraP]){
-      const p=ruaBruta.split(' ');p[0]=prefMap[p[0].toUpperCase()];ruaBruta=p.join(' ');
-    }
-    const bairro=(r.BAIENT||'').toString().trim();
-    const cidade=(r.CIDENT||'').toString().trim();
-    const num=(r.NumEnt||'').toString().trim();
-    let cep=(r.CEPENT||'').toString().replace(/\D/g,'');
-    while(cep.length<8) cep='0'+cep;
-    const endBusca=(ruaBruta+(num?' '+num:'')+', '+bairro+', '+cidade+', SP, Brasil').replace(/\s+/g,' ').trim();
-    const endDisplay=(ruaBruta+(num?', '+num:'')+' - '+bairro+', '+cidade+'/SP').replace(/\s+/g,' ').trim();
-    // Formata data
-    let dataEnt='';
-    if(r.DataEntrega){
-      const dt=new Date(r.DataEntrega);
-      if(!isNaN(dt)) dataEnt=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0')+'/'+dt.getFullYear();
-    }
-    return {
-      endereco:endBusca, enderecoDisplay:endDisplay, ruaOriginal:ruaBruta,
-      numero:num, bairro, cidade, uf:'SP', cep,
-      pedido:String(r.CodOrcamento_ID||''),
-      motoristaSugerido:'',
-      cliente:(r.NomeFantasia||r.Nome||'').toString(),
-      obs:(r.Observacoes||'').toString(),
-      valor:(r.Valor_Pedido||'').toString(),
-      vendedor:(r.CodVendedor_ID||'').toString(),
-      dataEntrega:dataEnt,
-      prioridade:(r.Prioridade||'').toString(),
-    };
-  });
-
-  // Deduplica com entregas existentes por pedido
-  const pedidosExist=new Set(entregas.map(e=>e.pedido).filter(Boolean));
-  const novas=novasEntregas.filter(e=>!pedidosExist.has(e.pedido));
-  const duplicadas=novasEntregas.length-novas.length;
-  entregas.push(...novas);
-  window._dupRemovidasCount=duplicadas;
-
-  // Mostra preview na aba Entregas e navega para lá
-  mostrarPreview();
-  switchTab('entrada', document.querySelectorAll('.tab')[0]);
-  const info=document.createElement('div');
-  info.className='info info-green';
-  info.style.marginTop='8px';
-  info.textContent=novas.length+' entrega(s) carregada(s) da Fila Deak'+(duplicadas?' ('+duplicadas+' duplicata(s) ignorada(s))':'');
-  const preview=document.getElementById('csv-preview');
-  const old=preview.querySelector('.info-green');if(old) old.remove();
-  preview.prepend(info);
-}
-async function filaAtualizar(){
-  const btn=document.querySelector('#tab-fila button.btn-atualizar');
-  if(btn){btn.disabled=true;btn.textContent='⟳ Buscando...';}
-  try{
-    const resp=await fetch(API+'/fila');
-    const data=await resp.json();
-    if(!data.ok) throw new Error(data.error||'Erro ao buscar fila');
-    window._filaData=data.rows||[];
-    filaRenderizar(window._filaData);
-  }catch(e){
-    alert('Erro ao conectar no banco Deak: '+e.message);
-  }finally{
-    if(btn){btn.disabled=false;btn.textContent='⟳ Atualizar da API';}
-  }
-}
-
-function filaRenderizar(rows){
-  const tbody=document.getElementById('fila-tbody');
-  if(!tbody) return;
-
-  // Agrupa: pedidos principais (NumNF null) e NFs filhas
-  const pedidos={};
-  rows.forEach(r=>{
-    const id=r.CodOrcamento_ID;
-    if(!pedidos[id]) pedidos[id]=[];
-    pedidos[id].push(r);
-  });
-
-  // Stats
-  const totalPed=Object.keys(pedidos).length;
-  const totalNFs=rows.filter(r=>r.NumNF).length;
-  const totalValor=rows.filter(r=>!r.NumNF).reduce((s,r)=>s+(parseFloat(r.Valor_Pedido)||0),0);
-  const st=document.getElementById('fila-stat-total');if(st) st.textContent=totalPed;
-  const sn=document.getElementById('fila-stat-nfs');if(sn) sn.textContent=totalNFs;
-  const sv=document.getElementById('fila-stat-valor');
-  if(sv) sv.textContent='R$ '+totalValor.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
-
-  if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--muted)">Nenhuma entrega na fila de transportes</td></tr>';
-    return;
-  }
-
-  const empCores={COPELI:'copeli',IZAURA:'izaura',CPAINEL:'cpainel'};
-  let html='';
-
-  Object.entries(pedidos).forEach(([id,linhas])=>{
-    // Linha principal = sem NF ou primeira
-    const main=linhas.find(r=>!r.NumNF)||linhas[0];
-    const nfs=linhas.filter(r=>r.NumNF);
-    const emp=(main.Empresa||'').toUpperCase();
-    const empClass=empCores[emp]||'copeli';
-    const dt=main.DataEntrega?new Date(main.DataEntrega).toLocaleDateString('pt-BR'):'—';
-    const valor=parseFloat(main.Valor_Pedido)||0;
-    const valorFmt=valor>0?'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
-    const end=((main.TipoEnt?main.TipoEnt+' ':'')+main.ENDENT+', '+main.NumEnt+' - '+main.BAIENT).trim();
-    const obs=(main.Observacoes||'').substring(0,40);
-
-    html+=`<tr data-id="${id}" data-main="1">
-      <td><input type="checkbox" class="fila-chk" data-id="${id}" onchange="filaContarSel()"/></td>
-      <td style="font-weight:600;color:var(--blue)">#${id}</td>
-      <td style="color:var(--muted);font-size:10px">—</td>
-      <td><span class="badge-emp ${empClass}">${emp}</span></td>
-      <td style="font-weight:500;min-width:180px">${main.NomeFantasia||main.Nome||'—'}</td>
-      <td style="white-space:nowrap;color:#1a5fa8">${dt}</td>
-      <td style="white-space:nowrap">${main.CIDENT||'—'}</td>
-      <td style="font-size:10px;color:var(--muted);min-width:160px">${end}</td>
-      <td style="font-weight:600;color:var(--green);white-space:nowrap">${valorFmt}</td>
-      <td style="font-size:10px">${main.CodVendedor_ID||'—'}</td>
-      <td><span style="font-size:10px;background:var(--blue-l);color:var(--blue);padding:2px 7px;border-radius:10px">${main.Prioridade||'—'}</span></td>
-      <td style="font-size:10px;color:var(--amber);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${obs}">${obs||'—'}</td>
-    </tr>`;
-
-    nfs.forEach(nf=>{
-      html+=`<tr style="background:#fffbf2" data-id="${id}" data-nf="${nf.NumNF}">
-        <td><input type="checkbox" class="fila-chk" data-id="${id}-nf${nf.NumNF}" onchange="filaContarSel()"/></td>
-        <td style="color:var(--blue);padding-left:24px;font-size:11px">↳ #${id}</td>
-        <td style="color:var(--blue);font-size:10px;font-weight:700">NF ${nf.NumNF}</td>
-        <td><span class="badge-emp ${empClass}">${emp}</span></td>
-        <td style="color:var(--muted);font-size:11px">${nf.NomeFantasia||nf.Nome||'—'}</td>
-        <td style="white-space:nowrap;color:var(--muted);font-size:10px">${dt}</td>
-        <td style="color:var(--muted);font-size:10px">${nf.CIDENT||'—'}</td>
-        <td style="font-size:10px;color:var(--muted)">${end}</td>
-        <td style="color:var(--muted);font-size:10px">—</td>
-        <td style="font-size:10px">${nf.CodVendedor_ID||'—'}</td>
-        <td></td><td></td>
-      </tr>`;
-    });
-  });
-
-  tbody.innerHTML=html;
-  filaContarSel();
-}
-function toggleAprovCard(head){
-  const body=head.nextElementSibling;
-  if(!body||!body.classList.contains('aprov-body')) return;
-  const isOpen=body.classList.contains('open');
-  body.classList.toggle('open',!isOpen);
-  body.style.display=isOpen?'none':'block';
-  const arr=head.querySelector('span:last-child');
-  if(arr) arr.textContent=isOpen?'▸':'▾';
 }
 
 // ─── PAINEL INTERATIVO ───────────────────────────────────────────────────
