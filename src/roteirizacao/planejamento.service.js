@@ -1,17 +1,6 @@
 const configuracoes = require('./configuracoes.repository');
+const { encontrarFaixa } = require('./faixas-cep');
 const { planejarTours } = require('./here.service');
-
-function cepValido(cep) {
-  return /^\d{8}$/.test(cep);
-}
-
-function encontrarFaixa(cep, faixas) {
-  const normalizado = configuracoes.normalizarCep(cep);
-  if (!cepValido(normalizado)) return null;
-  return faixas.find(
-    (faixa) => normalizado >= faixa.cep_inicial && normalizado <= faixa.cep_final
-  ) || null;
-}
 
 function validarEntregas(entregas) {
   if (!Array.isArray(entregas) || !entregas.length) {
