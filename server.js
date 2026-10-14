@@ -68,6 +68,35 @@ app.get('/route', async (req, res) => {
   }
 });
 
+app.post('/api/mapas/rota', async (req, res) => {
+  try {
+    const pontos = req.body && req.body.pontos;
+    if (!Array.isArray(pontos) || pontos.length < 2) {
+      return res.status(400).json({ ok: false, error: 'Informe ao menos 2 pontos.' });
+    }
+
+    const normalizados = pontos.map((ponto) => ({
+      lat: Number(ponto.lat),
+      lng: Number(ponto.lng),
+    }));
+    const invalidos = normalizados.some(
+      (ponto) => !Number.isFinite(ponto.lat) || !Number.isFinite(ponto.lng)
+    );
+    if (invalidos) {
+      return res.status(400).json({ ok: false, error: 'Coordenadas invalidas.' });
+    }
+
+    res.json(await calcularRota(normalizados));
+  } catch (erro) {
+    const status = erro.code === 'HERE_NAO_CONFIGURADO' ? 503 : 500;
+    res.status(status).json({
+      ok: false,
+      error: erro.message,
+      code: erro.code || 'ERRO_ROTA',
+    });
+  }
+});
+
 // Compatibilidade com a versao anterior. A fonte agora e a view real do Deak.
 app.get('/fila', async (req, res) => {
   try {
