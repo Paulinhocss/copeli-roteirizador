@@ -1316,8 +1316,12 @@ async function reotimizarMapa(rotas){
     // Rota via backend Railway (proxy HERE Maps) — sem CORS, sem limite de URL
     const wpts=[dep,...rota,dep];
     try{
-      const waypointsStr=wpts.map(p=>`${p.lat},${p.lng}`).join('|');
-      const resp=await fetch(`${API}/route?waypoints=${encodeURIComponent(waypointsStr)}`,{signal:AbortSignal.timeout(15000)});
+      const resp=await fetch(`${API}/api/mapas/rota`,{
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({pontos:wpts}),
+        signal:AbortSignal.timeout(20000)
+      });
       const data=await resp.json();
       if(data.ok&&data.coords&&data.coords.length>0){
         layers.push(L.polyline(data.coords,{color:corMot,weight:4,opacity:0.9}).addTo(mapa));
