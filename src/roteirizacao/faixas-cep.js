@@ -1,7 +1,10 @@
 function normalizarCep(cep) {
   const somenteNumeros = String(cep || '').replace(/\D/g, '');
   if (!somenteNumeros) return '';
-  return somenteNumeros.padStart(8, '0').slice(-8);
+  if (somenteNumeros.length === 8) return somenteNumeros;
+  if (somenteNumeros.length === 7) return '0' + somenteNumeros;
+  if (somenteNumeros.length === 6) return '00' + somenteNumeros;
+  return '';
 }
 
 function encontrarFaixa(cep, faixas) {
