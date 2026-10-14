@@ -7,6 +7,8 @@ const router = express.Router();
 function responderErro(res, erro) {
   const codigos400 = new Set([
     'MODO_INVALIDO',
+    'CONFIGURACAO_INVALIDA',
+    'FAIXA_CEP_INVALIDA',
     'FAIXA_CEP_SOBREPOSTA',
     'SEM_ENTREGAS',
     'SEM_VEICULOS',
