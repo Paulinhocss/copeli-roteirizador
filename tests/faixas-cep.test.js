@@ -27,3 +27,12 @@ test('encontrarFaixa nao atribui CEP ausente', () => {
     null
   );
 });
+
+
+test('CEP curto invalido nao e transformado em faixa valida', () => {
+  assert.equal(normalizarCep('12345'), '');
+  assert.equal(
+    encontrarFaixa('12345', [{ id: 1, cep_inicial: '00000000', cep_final: '99999999' }]),
+    null
+  );
+});
