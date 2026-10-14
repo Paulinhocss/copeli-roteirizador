@@ -1,162 +1,122 @@
 const express = require('express');
 const cors = require('cors');
-const fetch = require('node-fetch');
+
+const { ambiente } = require('./src/config/ambiente');
+const postgres = require('./src/infrastructure/postgres');
+const deak = require('./src/infrastructure/deak');
+const configuracoes = require('./src/roteirizacao/configuracoes.repository');
+const { geocodificar, calcularRota } = require('./src/roteirizacao/here.service');
+const { listarEntregas } = require('./src/entregas/repository');
+const entregasRouter = require('./src/entregas/router');
+const roteirizacaoRouter = require('./src/roteirizacao/router');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin: ambiente.corsOrigin === '*' ? true : ambiente.corsOrigin,
+}));
+app.use(express.json({ limit: '3mb' }));
 
-const HERE_KEY = '4YEO9FLs9MHJE9eDar3MofG9qyF1pCaAWZTSAA6KCfM';
-
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-app.get('/', (req, res) => {
-  res.json({ status: 'ok', service: 'Copeli Roteirizador API v3 - HERE Maps' });
+app.get('/', (_req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'Copeli Roteirizador API v4',
+    integracoes: {
+      here: Boolean(ambiente.hereApiKey),
+      deak: deak.configurado(),
+      postgres: postgres.configurado(),
+    },
+  });
 });
 
-async function buscarHERE(query) {
-  try {
-    const url = `https://geocode.search.hereapi.com/v1/geocode?q=${encodeURIComponent(query)}&lang=pt-BR&in=countryCode:BRA&apiKey=${HERE_KEY}`;
-    const r = await fetch(url);
-    const d = await r.json();
-    if (d.items && d.items.length > 0) {
-      const item = d.items[0];
-      return { lat: item.position.lat, lng: item.position.lng, display: item.address.label };
-    }
-  } catch(e) {}
-  return null;
-}
-
-async function buscarViaCEP(cep) {
-  try {
-    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-    const d = await r.json();
-    if (d && !d.erro) return { logradouro: d.logradouro||'', bairro: d.bairro||'', cidade: d.localidade||'', uf: d.uf||'SP' };
-  } catch(e) {}
-  return null;
-}
-
-function dentroDeSP(lat, lng) {
-  return lat >= -25.3 && lat <= -19.7 && lng >= -53.2 && lng <= -44.2;
-}
-
 app.get('/geocode', async (req, res) => {
-  const { q, numero, bairro, cidade, uf, cep } = req.query;
-  if (!q) return res.status(400).json({ error: 'Parametro q obrigatorio' });
-
-  let cepFmt = (cep||'').replace(/\D/g,'');
-  while (cepFmt.length < 8) cepFmt = '0' + cepFmt;
-
-  const cidadeStr = cidade || 'Sao Paulo';
-  const ufStr = uf || 'SP';
-  const tentativas = [];
-
-  if (cepFmt.length === 8) tentativas.push(`${cepFmt}, Brasil`);
-
-  if (cepFmt.length === 8) {
-    const via = await buscarViaCEP(cepFmt);
-    if (via && via.logradouro) {
-      const endCompleto = `${via.logradouro}${numero ? ' '+numero : ''}, ${via.bairro}, ${via.cidade}, ${via.uf}, Brasil`;
-      tentativas.push(endCompleto);
-      tentativas.push(`${via.logradouro}, ${via.bairro}, ${via.cidade}, ${via.uf}, Brasil`);
-    }
+  try {
+    const resultado = await geocodificar(req.query);
+    res.json(resultado);
+  } catch (erro) {
+    const status = erro.code === 'HERE_NAO_CONFIGURADO' ? 503 : 400;
+    res.status(status).json({ found: false, error: erro.message, code: erro.code });
   }
-
-  const qLimpo = q.trim();
-  if (qLimpo && bairro && cidadeStr) {
-    if (numero) tentativas.push(`${qLimpo} ${numero}, ${bairro}, ${cidadeStr}, ${ufStr}, Brasil`);
-    tentativas.push(`${qLimpo}, ${bairro}, ${cidadeStr}, ${ufStr}, Brasil`);
-  }
-
-  if (qLimpo && cidadeStr) {
-    if (numero) tentativas.push(`${qLimpo} ${numero}, ${cidadeStr}, ${ufStr}, Brasil`);
-    tentativas.push(`${qLimpo}, ${cidadeStr}, ${ufStr}, Brasil`);
-  }
-
-  if (bairro && cidadeStr) tentativas.push(`${bairro}, ${cidadeStr}, ${ufStr}, Brasil`);
-  if (cidadeStr) tentativas.push(`${cidadeStr}, ${ufStr}, Brasil`);
-
-  for (const query of tentativas) {
-    if (!query || query.length < 5) continue;
-    const result = await buscarHERE(query);
-    if (result && dentroDeSP(result.lat, result.lng)) {
-      return res.json({ found: true, lat: result.lat, lng: result.lng, display: result.display, query_used: query });
-    }
-  }
-
-  res.json({ found: false, query: q });
 });
 
 app.get('/route', async (req, res) => {
-  const { waypoints } = req.query;
-  if (!waypoints) return res.status(400).json({ error: 'waypoints obrigatorio' });
-
   try {
-    const pts = waypoints.split('|').map(w => {
-      const [lat, lng] = w.split(',');
-      return { lat: parseFloat(lat), lng: parseFloat(lng) };
+    if (!req.query.waypoints) {
+      return res.status(400).json({ ok: false, error: 'waypoints obrigatorio' });
+    }
+
+    const pontos = String(req.query.waypoints).split('|').map((item) => {
+      const [lat, lng] = item.split(',');
+      return { lat: Number(lat), lng: Number(lng) };
     });
 
-    if (pts.length < 2) return res.status(400).json({ error: 'Minimo 2 waypoints' });
-
-    let params = `origin=${pts[0].lat},${pts[0].lng}`;
-    for (let i = 1; i < pts.length - 1; i++) {
-      params += `&via=${pts[i].lat},${pts[i].lng}`;
+    const invalidos = pontos.some(
+      (ponto) => !Number.isFinite(ponto.lat) || !Number.isFinite(ponto.lng)
+    );
+    if (invalidos) {
+      return res.status(400).json({ ok: false, error: 'waypoints invalidos' });
     }
-    params += `&destination=${pts[pts.length-1].lat},${pts[pts.length-1].lng}`;
-    params += `&transportMode=car&return=polyline&apikey=${HERE_KEY}`;
 
-    const hereUrl = `https://router.hereapi.com/v8/routes?${params}`;
-    const r = await fetch(hereUrl);
-    const d = await r.json();
-
-    if (d.routes && d.routes[0]) {
-      const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-      function decodeChar(c) { return CHARS.indexOf(c); }
-      function decodePolyline(encoded) {
-        const header2 = decodeChar(encoded[1]);
-        const precision = header2 & 0xF;
-        const has3d = (header2 >> 4) & 1;
-        const factor = Math.pow(10, precision);
-        let i = 2, lat = 0, lng = 0;
-        const coords = [];
-        while (i < encoded.length) {
-          let rv = 0, s = 0, b;
-          do { b = decodeChar(encoded[i++]); rv |= (b & 0x1F) << s; s += 5; } while (b >= 0x20);
-          lat += ((rv & 1) ? ~(rv >> 1) : (rv >> 1));
-          rv = 0; s = 0;
-          do { b = decodeChar(encoded[i++]); rv |= (b & 0x1F) << s; s += 5; } while (b >= 0x20);
-          lng += ((rv & 1) ? ~(rv >> 1) : (rv >> 1));
-          if (has3d) { rv = 0; s = 0; do { b = decodeChar(encoded[i++]); rv |= (b & 0x1F) << s; s += 5; } while (b >= 0x20); }
-          coords.push([lat / factor, lng / factor]);
-        }
-        return coords;
-      }
-
-      const allCoords = [];
-      let totalMeters = 0;
-      d.routes[0].sections.forEach(s => {
-        allCoords.push(...decodePolyline(s.polyline));
-        if (s.summary && s.summary.length) totalMeters += s.summary.length;
-      });
-
-      const distKm = Math.round(totalMeters / 100) / 10;
-      res.json({ ok: true, coords: allCoords, distKm });
-    } else {
-      res.json({ ok: false, error: 'HERE sem rota', detail: d });
-    }
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    res.json(await calcularRota(pontos));
+  } catch (erro) {
+    const status = erro.code === 'HERE_NAO_CONFIGURADO' ? 503 : 500;
+    res.status(status).json({
+      ok: false,
+      error: erro.message,
+      code: erro.code || 'ERRO_ROTA',
+    });
   }
 });
 
-// Fila Deak - será ativado quando SQL estiver configurado
+// Compatibilidade com a versao anterior. A fonte agora e a view real do Deak.
 app.get('/fila', async (req, res) => {
-  res.json({ ok: false, error: 'Conexao com banco Deak nao configurada ainda.' });
+  try {
+    const entregas = await listarEntregas({ empresa: req.query.empresa });
+    res.json({ ok: true, total: entregas.length, entregas });
+  } catch (erro) {
+    const status = erro.code === 'DEAK_NAO_CONFIGURADO' ? 503 : 500;
+    res.status(status).json({
+      ok: false,
+      error: erro.message,
+      code: erro.code || 'ERRO_FILA',
+    });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`Copeli Roteirizador API v3 rodando na porta ${PORT}`);
+app.use('/api/entregas', entregasRouter);
+app.use('/api/roteirizacao', roteirizacaoRouter);
+
+app.use((erro, _req, res, _next) => {
+  console.error('[HTTP] Erro nao tratado:', erro.message);
+  res.status(500).json({ ok: false, error: 'Erro interno do roteirizador.' });
+});
+
+async function iniciar() {
+  if (postgres.configurado()) {
+    try {
+      await configuracoes.garantirEstrutura();
+      console.log('[POSTGRES] Estrutura de roteirizacao validada.');
+    } catch (erro) {
+      console.error('[POSTGRES] Nao foi possivel validar a estrutura:', erro.message);
+    }
+  } else {
+    console.warn('[POSTGRES] DATABASE_URL nao configurada. Painel administrativo ficara indisponivel.');
+  }
+
+  if (!ambiente.hereApiKey) {
+    console.warn('[HERE] HERE_API_KEY nao configurada. Geocodificacao e roteirizacao ficarao indisponiveis.');
+  }
+
+  if (!deak.configurado()) {
+    console.warn('[DEAK] Credenciais somente leitura nao configuradas. /fila e /api/entregas ficarao indisponiveis.');
+  }
+
+  app.listen(ambiente.port, () => {
+    console.log(`Copeli Roteirizador API v4 rodando na porta ${ambiente.port}`);
+  });
+}
+
+iniciar().catch((erro) => {
+  console.error('[STARTUP] Falha ao iniciar:', erro);
+  process.exitCode = 1;
 });
