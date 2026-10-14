@@ -38,6 +38,18 @@
 
   function atualizarBanner(cfg) {
     modoAtual = cfg && cfg.modo;
+    if (cfg) {
+      window.__roteirizacaoConfiguracao = cfg;
+      const depositoInput = document.getElementById('deposito');
+      if (depositoInput && cfg.deposito_endereco) depositoInput.value = cfg.deposito_endereco;
+      if (Number.isFinite(Number(cfg.deposito_lat)) && Number.isFinite(Number(cfg.deposito_lng))) {
+        depGlobal = {
+          lat: Number(cfg.deposito_lat),
+          lng: Number(cfg.deposito_lng),
+        };
+      }
+    }
+
     const banner = document.getElementById('modo-roteirizacao-banner');
     if (!banner) return;
 
@@ -230,6 +242,12 @@
         timerEl.style.color = 'var(--blue)';
       }
       iniciarTimer();
+
+      await carregarConfiguracao();
+      const cfg = window.__roteirizacaoConfiguracao;
+      if (cfg && Number.isFinite(Number(cfg.deposito_lat)) && Number.isFinite(Number(cfg.deposito_lng))) {
+        depGlobal = { lat: Number(cfg.deposito_lat), lng: Number(cfg.deposito_lng) };
+      }
 
       const dados = await planejarNoBackend(pontos);
       modoAtual = dados.modo || modoAtual;
