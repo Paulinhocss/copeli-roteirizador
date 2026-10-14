@@ -102,8 +102,28 @@ async function atualizarConfiguracao(dados) {
     10
   );
 
-  if (!Number.isFinite(depositoLat) || !Number.isFinite(depositoLng)) {
-    throw new Error('Latitude e longitude do deposito sao obrigatorias.');
+  if (
+    !Number.isFinite(depositoLat) ||
+    !Number.isFinite(depositoLng) ||
+    depositoLat < -90 || depositoLat > 90 ||
+    depositoLng < -180 || depositoLng > 180
+  ) {
+    const erro = new Error('Latitude ou longitude do deposito invalida.');
+    erro.code = 'CONFIGURACAO_INVALIDA';
+    throw erro;
+  }
+
+  if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(inicioJornada) ||
+      !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(fimJornada)) {
+    const erro = new Error('Horario de jornada invalido. Use HH:MM.');
+    erro.code = 'CONFIGURACAO_INVALIDA';
+    throw erro;
+  }
+
+  if (!Number.isInteger(tempoParada) || tempoParada < 0 || tempoParada > 86400) {
+    const erro = new Error('Tempo medio por parada invalido.');
+    erro.code = 'CONFIGURACAO_INVALIDA';
+    throw erro;
   }
 
   const { rows } = await postgres.query(`
@@ -265,9 +285,26 @@ async function validarSobreposicaoFaixa(cepInicial, cepFinal, ignorarId = null) 
 async function criarFaixaCep(dados) {
   const cepInicial = normalizarCep(dados.cep_inicial);
   const cepFinal = normalizarCep(dados.cep_final);
-  if (cepInicial > cepFinal) throw new Error('CEP inicial nao pode ser maior que o CEP final.');
+  const motoristaId = Number(dados.motorista_id);
+  const ativo = dados.ativo === undefined ? true : Boolean(dados.ativo);
 
-  await validarSobreposicaoFaixa(cepInicial, cepFinal);
+  if (!cepInicial || !cepFinal) {
+    const erro = new Error('CEP inicial e CEP final devem conter 8 digitos.');
+    erro.code = 'FAIXA_CEP_INVALIDA';
+    throw erro;
+  }
+  if (cepInicial > cepFinal) {
+    const erro = new Error('CEP inicial nao pode ser maior que o CEP final.');
+    erro.code = 'FAIXA_CEP_INVALIDA';
+    throw erro;
+  }
+  if (!Number.isInteger(motoristaId) || motoristaId <= 0) {
+    const erro = new Error('Motorista da faixa e obrigatorio.');
+    erro.code = 'FAIXA_CEP_INVALIDA';
+    throw erro;
+  }
+
+  if (ativo) await validarSobreposicaoFaixa(cepInicial, cepFinal);
 
   const { rows } = await postgres.query(`
     INSERT INTO roteirizacao_faixa_cep
@@ -275,12 +312,7 @@ async function criarFaixaCep(dados) {
     VALUES ($1, $2, $3, $4)
     RETURNING id, cep_inicial, cep_final, motorista_id, ativo,
               criado_em, atualizado_em
-  `, [
-    cepInicial,
-    cepFinal,
-    Number(dados.motorista_id),
-    dados.ativo === undefined ? true : Boolean(dados.ativo),
-  ]);
+  `, [cepInicial, cepFinal, motoristaId, ativo]);
   return rows[0];
 }
 
@@ -298,8 +330,21 @@ async function atualizarFaixaCep(id, dados) {
     ? atual.cep_final
     : normalizarCep(dados.cep_final);
 
-  if (cepInicial > cepFinal) throw new Error('CEP inicial nao pode ser maior que o CEP final.');
-  await validarSobreposicaoFaixa(cepInicial, cepFinal, Number(id));
+  if (!cepInicial || !cepFinal) {
+    const erro = new Error('CEP inicial e CEP final devem conter 8 digitos.');
+    erro.code = 'FAIXA_CEP_INVALIDA';
+    throw erro;
+  }
+  if (cepInicial > cepFinal) {
+    const erro = new Error('CEP inicial nao pode ser maior que o CEP final.');
+    erro.code = 'FAIXA_CEP_INVALIDA';
+    throw erro;
+  }
+
+  const ativoFuturo = dados.ativo === undefined ? atual.ativo : Boolean(dados.ativo);
+  if (ativoFuturo) {
+    await validarSobreposicaoFaixa(cepInicial, cepFinal, Number(id));
+  }
 
   const { rows } = await postgres.query(`
     UPDATE roteirizacao_faixa_cep
