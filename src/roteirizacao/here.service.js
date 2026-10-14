@@ -200,12 +200,17 @@ async function calcularRota(pontos) {
 }
 
 function dataSaoPaulo() {
-  return new Intl.DateTimeFormat('en-CA', {
+  const partes = new Intl.DateTimeFormat('pt-BR', {
     timeZone: 'America/Sao_Paulo',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(new Date());
+  }).formatToParts(new Date());
+
+  const mapa = Object.fromEntries(
+    partes.filter((parte) => parte.type !== 'literal').map((parte) => [parte.type, parte.value])
+  );
+  return `${mapa.year}-${mapa.month}-${mapa.day}`;
 }
 
 function horarioComOffset(data, horario) {
