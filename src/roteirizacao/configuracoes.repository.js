@@ -1,11 +1,7 @@
 const postgres = require('../infrastructure/postgres');
+const { normalizarCep } = require('./faixas-cep');
 
 const MODOS_VALIDOS = new Set(['CEP', 'OTIMIZADA']);
-
-function normalizarCep(cep) {
-  const somenteNumeros = String(cep || '').replace(/\D/g, '');
-  return somenteNumeros.padStart(8, '0').slice(-8);
-}
 
 async function garantirEstrutura() {
   if (!postgres.configurado()) return false;
