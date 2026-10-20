@@ -279,16 +279,6 @@
           ${f.ativo ? 'Desativar' : 'Ativar'}
         </button>
       </div>
-    document.getElementById('admin-lista-faixas').innerHTML = estado.faixas.map((f) => `
-      <div class="admin-row">
-        <div class="admin-row-main">
-          <strong>${formatarCep(f.cep_inicial)} a ${formatarCep(f.cep_final)}</strong>
-          <small>${escapeHtml(f.motorista_nome)} · ${f.ativo ? 'ativa' : 'inativa'}</small>
-        </div>
-        <button class="btn admin-mini" onclick="adminAlternarFaixa(${f.id},${!f.ativo})">
-          ${f.ativo ? 'Desativar' : 'Ativar'}
-        </button>
-      </div>
     `).join('') || '<small style="color:var(--muted)">Nenhuma faixa cadastrada.</small>';
 
     document.getElementById('admin-lista-pontos-despacho').innerHTML = estado.pontosDespacho.map((p) => `
