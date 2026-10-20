@@ -75,6 +75,25 @@ async function obterResumo(dataOperacao = hojeSaoPaulo()) {
       (SELECT COUNT(*) FILTER (
         WHERE status IN ('PENDENTE','EM_DESLOCAMENTO','NO_CLIENTE')
       )::int FROM paradas) AS entregas_pendentes,
+      (SELECT COUNT(*) FILTER (WHERE modalidade = 'PROPRIA')::int FROM paradas) AS modalidade_propria,
+      (SELECT COUNT(*) FILTER (WHERE modalidade = 'TRANSPORTADORA')::int FROM paradas) AS modalidade_transportadora,
+      (SELECT COUNT(*) FILTER (WHERE modalidade = 'SEDEX')::int FROM paradas) AS modalidade_sedex,
+      (SELECT COUNT(*) FILTER (
+        WHERE modalidade IN ('TRANSPORTADORA','SEDEX')
+          AND status_externo = 'AGUARDANDO_DESPACHO'
+      )::int FROM paradas) AS externos_aguardando_despacho,
+      (SELECT COUNT(*) FILTER (
+        WHERE modalidade IN ('TRANSPORTADORA','SEDEX')
+          AND status_externo IN ('DESPACHADO','EM_TRANSITO')
+      )::int FROM paradas) AS externos_em_acompanhamento,
+      (SELECT COUNT(*) FILTER (
+        WHERE modalidade IN ('TRANSPORTADORA','SEDEX')
+          AND status_externo = 'ENTREGUE'
+      )::int FROM paradas) AS externos_entregues_final,
+      (SELECT COUNT(*) FILTER (
+        WHERE modalidade IN ('TRANSPORTADORA','SEDEX')
+          AND status_externo = 'EXCECAO'
+      )::int FROM paradas) AS externos_excecao,
       COALESCE((SELECT SUM(valor) FROM paradas), 0)::numeric(18,2) AS valor_total,
       COALESCE((SELECT SUM(km_planejado) FROM rotas), 0)::numeric(12,2) AS km_planejado,
       (SELECT SUM(km_real)::numeric(12,2) FROM rotas WHERE km_real IS NOT NULL) AS km_real,
