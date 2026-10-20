@@ -36,6 +36,11 @@ async function obterResumo(dataOperacao = hojeSaoPaulo()) {
       FROM ct_parada p
       INNER JOIN rotas r ON r.id = p.rota_id
     ),
+    entregas AS (
+      SELECT pe.*, p.status AS status_parada
+      FROM ct_parada_entrega pe
+      INNER JOIN paradas p ON p.id = pe.parada_id
+    ),
     ocorrencias AS (
       SELECT COUNT(*)::int AS abertas
       FROM ct_ocorrencia o
@@ -68,33 +73,40 @@ async function obterResumo(dataOperacao = hojeSaoPaulo()) {
       (SELECT COUNT(*) FILTER (WHERE status = 'LIBERADA')::int FROM rotas) AS rotas_liberadas,
       (SELECT COUNT(*) FILTER (WHERE status = 'EM_ROTA')::int FROM rotas) AS rotas_em_rota,
       (SELECT COUNT(*) FILTER (WHERE status = 'FINALIZADA')::int FROM rotas) AS rotas_finalizadas,
-      (SELECT COUNT(*)::int FROM paradas) AS entregas_total,
-      (SELECT COUNT(*) FILTER (WHERE status = 'ENTREGUE')::int FROM paradas) AS entregas_concluidas,
-      (SELECT COUNT(*) FILTER (WHERE status = 'NAO_ENTREGUE')::int FROM paradas) AS entregas_nao_entregues,
-      (SELECT COUNT(*) FILTER (WHERE status = 'REAGENDADA')::int FROM paradas) AS entregas_reagendadas,
+      (SELECT COUNT(*)::int FROM paradas) AS paradas_total,
+      (SELECT COUNT(*) FILTER (WHERE status = 'ENTREGUE')::int FROM paradas) AS paradas_concluidas,
+      (SELECT COUNT(*) FILTER (WHERE status = 'NAO_ENTREGUE')::int FROM paradas) AS paradas_nao_entregues,
+      (SELECT COUNT(*) FILTER (WHERE status = 'REAGENDADA')::int FROM paradas) AS paradas_reagendadas,
       (SELECT COUNT(*) FILTER (
         WHERE status IN ('PENDENTE','EM_DESLOCAMENTO','NO_CLIENTE')
-      )::int FROM paradas) AS entregas_pendentes,
-      (SELECT COUNT(*) FILTER (WHERE modalidade = 'PROPRIA')::int FROM paradas) AS modalidade_propria,
-      (SELECT COUNT(*) FILTER (WHERE modalidade = 'TRANSPORTADORA')::int FROM paradas) AS modalidade_transportadora,
-      (SELECT COUNT(*) FILTER (WHERE modalidade = 'SEDEX')::int FROM paradas) AS modalidade_sedex,
+      )::int FROM paradas) AS paradas_pendentes,
+      (SELECT COUNT(*)::int FROM entregas) AS entregas_total,
+      (SELECT COUNT(*) FILTER (WHERE status_parada = 'ENTREGUE')::int FROM entregas) AS entregas_concluidas_copeli,
+      (SELECT COUNT(*) FILTER (WHERE status_parada = 'NAO_ENTREGUE')::int FROM entregas) AS entregas_nao_entregues,
+      (SELECT COUNT(*) FILTER (WHERE status_parada = 'REAGENDADA')::int FROM entregas) AS entregas_reagendadas,
+      (SELECT COUNT(*) FILTER (
+        WHERE status_parada IN ('PENDENTE','EM_DESLOCAMENTO','NO_CLIENTE')
+      )::int FROM entregas) AS entregas_pendentes,
+      (SELECT COUNT(*) FILTER (WHERE modalidade = 'PROPRIA')::int FROM entregas) AS modalidade_propria,
+      (SELECT COUNT(*) FILTER (WHERE modalidade = 'TRANSPORTADORA')::int FROM entregas) AS modalidade_transportadora,
+      (SELECT COUNT(*) FILTER (WHERE modalidade = 'SEDEX')::int FROM entregas) AS modalidade_sedex,
       (SELECT COUNT(*) FILTER (
         WHERE modalidade IN ('TRANSPORTADORA','SEDEX')
           AND status_externo = 'AGUARDANDO_DESPACHO'
-      )::int FROM paradas) AS externos_aguardando_despacho,
+      )::int FROM entregas) AS externos_aguardando_despacho,
       (SELECT COUNT(*) FILTER (
         WHERE modalidade IN ('TRANSPORTADORA','SEDEX')
           AND status_externo IN ('DESPACHADO','EM_TRANSITO')
-      )::int FROM paradas) AS externos_em_acompanhamento,
+      )::int FROM entregas) AS externos_em_acompanhamento,
       (SELECT COUNT(*) FILTER (
         WHERE modalidade IN ('TRANSPORTADORA','SEDEX')
           AND status_externo = 'ENTREGUE'
-      )::int FROM paradas) AS externos_entregues_final,
+      )::int FROM entregas) AS externos_entregues_final,
       (SELECT COUNT(*) FILTER (
         WHERE modalidade IN ('TRANSPORTADORA','SEDEX')
           AND status_externo = 'EXCECAO'
-      )::int FROM paradas) AS externos_excecao,
-      COALESCE((SELECT SUM(valor) FROM paradas), 0)::numeric(18,2) AS valor_total,
+      )::int FROM entregas) AS externos_excecao,
+      COALESCE((SELECT SUM(valor) FROM entregas), 0)::numeric(18,2) AS valor_total,
       COALESCE((SELECT SUM(km_planejado) FROM rotas), 0)::numeric(12,2) AS km_planejado,
       (SELECT SUM(km_real)::numeric(12,2) FROM rotas WHERE km_real IS NOT NULL) AS km_real,
       (SELECT COUNT(*)::int FROM rotas WHERE km_real IS NOT NULL) AS rotas_com_km_real,
