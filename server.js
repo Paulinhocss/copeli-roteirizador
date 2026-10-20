@@ -108,7 +108,7 @@ app.post('/api/mapas/rota', async (req, res) => {
   }
 });
 
-// Compatibilidade com a versao anterior. A fonte agora e a view real do Deak.
+// Compatibilidade com a versao anterior. A fonte e leitura direta das tabelas nativas do Deak.
 app.get('/fila', async (req, res) => {
   try {
     const entregas = await listarEntregas({ empresa: req.query.empresa });
