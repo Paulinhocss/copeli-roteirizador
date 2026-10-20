@@ -85,9 +85,14 @@ function agruparParadas(entregas) {
   const grupos = [];
   const mapa = new Map();
 
-  entregas.forEach((entrega, indice) => {
-    const mod = modalidade(entrega);
-    const d = destino(entrega, mod);
+  entregas.forEach((itemPlanejado, indice) => {
+    const mod = modalidade(itemPlanejado);
+    const d = destino(itemPlanejado, mod);
+    const filhos = Array.isArray(itemPlanejado.entregasAgrupadas) &&
+      itemPlanejado.entregasAgrupadas.length
+      ? itemPlanejado.entregasAgrupadas
+      : [itemPlanejado];
+
     const chave = mod === 'PROPRIA'
       ? 'PROPRIA|' + indice
       : [
@@ -101,11 +106,23 @@ function agruparParadas(entregas) {
 
     let grupo = mapa.get(chave);
     if (!grupo) {
-      grupo = { modalidade: mod, destino: d, entregas: [], primeiraOrdem: indice };
+      grupo = {
+        modalidade: mod,
+        destino: d,
+        entregas: [],
+        primeiraOrdem: indice,
+        etaPlanejado: texto(campo(itemPlanejado, 'chegadaPrevista', 'eta_planejado')),
+        inicioPlanejado: texto(campo(itemPlanejado, 'inicioPrevisto', 'inicio_planejado')),
+        fimPlanejado: texto(campo(itemPlanejado, 'fimPrevisto', 'fim_planejado')),
+      };
       mapa.set(chave, grupo);
       grupos.push(grupo);
     }
-    grupo.entregas.push(entrega);
+
+    grupo.entregas.push(...filhos);
+    if (!grupo.etaPlanejado) {
+      grupo.etaPlanejado = texto(campo(itemPlanejado, 'chegadaPrevista', 'eta_planejado'));
+    }
   });
 
   return grupos.sort((a, b) => a.primeiraOrdem - b.primeiraOrdem);
@@ -145,10 +162,21 @@ async function liberarPlanejamento(dados) {
   }));
 
   return postgres.transacao(async (db) => {
-    const totalEntregas = rotasPreparadas.reduce((s, r) => s + r.entregas.length, 0);
+    const totalEntregas = rotasPreparadas.reduce(
+      (s, r) => s + r.paradasFisicas.reduce((x, p) => x + p.entregas.length, 0),
+      0
+    );
     const totalParadas = rotasPreparadas.reduce((s, r) => s + r.paradasFisicas.length, 0);
-    const valorTotal = rotasPreparadas.reduce((s, r) => s + r.entregas.reduce(
-      (x, e) => x + (numero(campo(e, 'valor', 'VALOR')) || 0), 0), 0);
+    const valorTotal = rotasPreparadas.reduce(
+      (s, r) => s + r.paradasFisicas.reduce(
+        (x, p) => x + p.entregas.reduce(
+          (y, e) => y + (numero(campo(e, 'valor', 'VALOR')) || 0),
+          0
+        ),
+        0
+      ),
+      0
+    );
 
     const p = (await db.query(
       'INSERT INTO ct_planejamento ' +
@@ -164,7 +192,14 @@ async function liberarPlanejamento(dados) {
 
     const rotas = [];
     for (const r of rotasPreparadas) {
-      const valorRota = r.entregas.reduce((s, e) => s + (numero(campo(e, 'valor', 'VALOR')) || 0), 0);
+      const totalEntregasRota = r.paradasFisicas.reduce((s, p) => s + p.entregas.length, 0);
+      const valorRota = r.paradasFisicas.reduce(
+        (s, p) => s + p.entregas.reduce(
+          (x, e) => x + (numero(campo(e, 'valor', 'VALOR')) || 0),
+          0
+        ),
+        0
+      );
       const veiculoId = numero(campo(r.veiculo || {}, 'id'));
 
       const rota = (await db.query(
@@ -175,7 +210,7 @@ async function liberarPlanejamento(dados) {
         "VALUES ($1,$2,$3,'LIBERADA',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW(),NOW(),$14,NOW()) RETURNING *",
         [p.id, data, modo, numero(campo(r, 'motorista_id', 'motoristaId')), veiculoId,
          texto(origem.endereco), numero(origem.lat), numero(origem.lng),
-         r.entregas.length, r.paradasFisicas.length, valorRota,
+         totalEntregasRota, r.paradasFisicas.length, valorRota,
          numero(campo(r, 'distKm', 'km_planejado')),
          numero(campo(r, 'duracaoSegundos', 'duracao_planejada_segundos')), usuario]
       )).rows[0];
@@ -219,7 +254,7 @@ async function liberarPlanejamento(dados) {
             texto(campo(e, 'obs', 'observacao', 'Observacao')),
           mod === 'PROPRIA' ? texto(campo(e, 'tipo_logradouro', 'TipoEnt')) : null,
           d.endereco, d.numero, d.bairro, d.cidade, d.uf, d.cep, d.lat, d.lng,
-          valorParada, texto(campo(e, 'chegadaPrevista', 'eta_planejado')),
+          valorParada, grupo.etaPlanejado,
           mod, d.tipo, d.nome, d.endereco, d.numero, d.bairro, d.cidade, d.uf, d.cep, d.lat, d.lng,
           externo, grupo.entregas.length
         ])).rows[0];
@@ -261,7 +296,7 @@ async function liberarPlanejamento(dados) {
         [rota.id, usuario, JSON.stringify({
           planejamento_id: p.id,
           planejamento_codigo: codigoPlanejamento,
-          total_entregas: r.entregas.length,
+          total_entregas: totalEntregasRota,
           total_paradas: r.paradasFisicas.length
         })]
       );
