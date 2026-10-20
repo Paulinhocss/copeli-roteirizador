@@ -14,6 +14,7 @@ function responderErro(res, erro) {
     'SEM_VEICULOS',
     'SEM_VEICULOS_ATIVOS',
     'TOUR_PLANNING_LIMITE_SINCRONO',
+    'DESTINO_DESPACHO_OBRIGATORIO',
   ]);
 
   const status = erro.code === 'POSTGRES_NAO_CONFIGURADO'
