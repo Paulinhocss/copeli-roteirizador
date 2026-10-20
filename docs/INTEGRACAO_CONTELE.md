@@ -108,3 +108,30 @@ Após receber a chave da API da conta Copeli:
 6. validar relatório de km;
 7. publicar uma rota de homologação;
 8. comparar rota planejada x realizada.
+
+
+## Implementação de tempo real no Control Tower
+
+O backend possui polling adaptativo centralizado:
+
+- com rota `EM_ROTA`: consulta a Contele a cada **30 segundos**;
+- sem rota ativa: reduz para **3 minutos**;
+- os navegadores não consultam a Contele diretamente.
+
+A posição mais recente de cada veículo continua sendo gravada em `ct_contele_posicao_atual`.
+
+O frontend recebe as atualizações via **Server-Sent Events (SSE)**:
+
+```
+GET /api/integracoes/contele/stream
+```
+
+O mapa mantém marcadores dos veículos atualizados pelo stream. Assim, dez gestores com o Control Tower aberto continuam consumindo um único ciclo de consulta da API no backend.
+
+Também existe sincronização manual para diagnóstico:
+
+```
+POST /api/integracoes/contele/sincronizar-agora
+```
+
+A implementação não altera a regra de retenção: trajetória histórica detalhada continua sendo consultada na Contele por período; no PostgreSQL operacional permanece apenas o estado atual e os eventos/indicadores relevantes.
