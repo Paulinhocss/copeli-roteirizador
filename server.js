@@ -11,6 +11,8 @@ const { geocodificar, calcularRota } = require('./src/roteirizacao/here.service'
 const { listarEntregas } = require('./src/entregas/repository');
 const entregasRouter = require('./src/entregas/router');
 const roteirizacaoRouter = require('./src/roteirizacao/router');
+const controlTowerRepository = require('./src/control-tower/repository');
+const controlTowerRouter = require('./src/control-tower/router');
 
 const app = express();
 
@@ -116,6 +118,7 @@ app.get('/fila', async (req, res) => {
 
 app.use('/api/entregas', entregasRouter);
 app.use('/api/roteirizacao', roteirizacaoRouter);
+app.use('/api/control-tower', controlTowerRouter);
 
 app.use((erro, _req, res, _next) => {
   console.error('[HTTP] Erro nao tratado:', erro.message);
@@ -126,7 +129,8 @@ async function iniciar() {
   if (postgres.configurado()) {
     try {
       await configuracoes.garantirEstrutura();
-      console.log('[POSTGRES] Estrutura de roteirizacao validada.');
+      await controlTowerRepository.garantirEstrutura();
+      console.log('[POSTGRES] Estrutura de roteirizacao e Control Tower validada.');
     } catch (erro) {
       console.error('[POSTGRES] Nao foi possivel validar a estrutura:', erro.message);
     }
