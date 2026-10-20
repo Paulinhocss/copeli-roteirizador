@@ -1,3 +1,4 @@
+const path = require('path');
 require('dotenv').config();
 
 const express = require('express');
@@ -40,6 +41,22 @@ app.get('/', (_req, res) => {
     },
   });
 });
+
+
+app.get('/app', (_req, res) => {
+  res.sendFile(path.resolve(__dirname, 'index.html'));
+});
+
+for (const arquivo of [
+  'admin.js',
+  'roteirizacao-v2.js',
+  'control-tower.js',
+  'control-tower-realtime.js',
+]) {
+  app.get('/' + arquivo, (_req, res) => {
+    res.sendFile(path.resolve(__dirname, arquivo));
+  });
+}
 
 app.get('/geocode', async (req, res) => {
   try {
