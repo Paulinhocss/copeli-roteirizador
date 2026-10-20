@@ -2,6 +2,7 @@ const express = require('express');
 const repository = require('./repository');
 const execucao = require('./execucao.repository');
 const alertas = require('./alertas.service');
+const homologacao = require('./homologacao.service');
 
 const router = express.Router();
 
@@ -28,6 +29,18 @@ function responderErro(res, erro) {
     code: erro.code || 'ERRO_CONTROL_TOWER',
   });
 }
+
+
+router.get('/homologacao', async (req, res) => {
+  try {
+    const resultado = await homologacao.executar({
+      profundo: req.query.profundo === '1' || req.query.profundo === 'true',
+    });
+    res.json({ ok: true, homologacao: resultado });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
 
 router.get('/resumo', async (req, res) => {
   try {
