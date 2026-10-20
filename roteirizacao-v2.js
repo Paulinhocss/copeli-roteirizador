@@ -18,7 +18,7 @@
         Carregar entregas diretamente do Deak
       </button>
       <div id="deak-status" style="font-size:10px;color:var(--muted);line-height:1.5">
-        Usa a view dbo.vw_copeli_Entrega em modo somente leitura.
+        Consulta direta e somente leitura nas tabelas nativas do Deak.
       </div>
     `;
     bloco.insertBefore(box, bloco.firstChild);
@@ -89,18 +89,29 @@
     try {
       botao.disabled = true;
       botao.textContent = 'Carregando entregas...';
-      status.textContent = 'Consultando dbo.vw_copeli_Entrega...';
+      status.textContent = 'Consultando tabelas nativas do Deak...';
 
       const resposta = await fetch(apiBase + '/api/entregas');
       const dados = await resposta.json();
       if (!resposta.ok || !dados.ok) throw new Error(dados.error || 'Falha ao consultar o Deak.');
 
-      const brutas = (dados.entregas || []).map((row) => montarEntrada(row));
-      entregas = deduplicarPorPedido(brutas);
-      window._dupRemovidasCount = brutas.length - entregas.length;
+      const brutas = (dados.entregas || []).map((row) => ({
+        ...montarEntrada(row),
+        modalidade: row.Modalidade || null,
+        prioridade_codigo: row.PrioridadeCodigo || null,
+        requerDestinoOperacional: Boolean(row.RequerDestinoOperacional),
+        statusLogistico: row.StatusLogistico || null,
+        ultimoEventoStatus: row.UltimoEventoStatus || null,
+      }));
+
+      // Não deduplicar por pedido: um pedido pode gerar mais de uma entrega física/NF.
+      entregas = brutas;
+      window._dupRemovidasCount = 0;
       mostrarPreview();
 
-      status.textContent = entregas.length + ' entregas carregadas diretamente do Deak.';
+      const externas = entregas.filter((e) => e.requerDestinoOperacional).length;
+      status.textContent = entregas.length + ' entregas carregadas diretamente do Deak' +
+        (externas ? ' · ' + externas + ' exigem ponto de despacho (transportadora/SEDEX).' : '.');
     } catch (erro) {
       status.textContent = 'Erro: ' + erro.message;
       status.style.color = 'var(--red)';
