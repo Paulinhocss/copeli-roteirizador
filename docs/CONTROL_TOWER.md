@@ -164,7 +164,19 @@ Somente leitura:
 - vendedor;
 - situação operacional disponível.
 
-Fonte inicial: `dbo.vw_copeli_Entrega`.
+A Control Tower **não depende de views prontas do Deak**. A leitura operacional é feita diretamente nas tabelas nativas necessárias, com SQL versionado no Git do projeto.
+
+A antiga `dbo.vw_copeli_Entrega` permanece somente como referência temporária de paridade/homologação, nunca como contrato de dados do sistema.
+
+Camada inicial de leitura:
+
+- `Orcamento`: pedido, modalidade, data programada, endereço e frete;
+- `OrcamentoItem`: composição/valor e situação dos itens;
+- `Clientes`: identificação do cliente;
+- `NFiscalOrcamento`: vínculo pedido-item-NF;
+- `StatusPedido`: eventos do processo; não tratar simplesmente o último registro como status logístico.
+
+A máquina de estados logística pertence ao Control Tower.
 
 ### PostgreSQL do Control Tower
 
@@ -260,26 +272,89 @@ O Deak é fonte operacional/comercial e deve ser consumido preferencialmente em 
 
 ## Tratamento dos tipos de entrega
 
-O Control Tower deve **trazer todas as demandas logísticas elegíveis da origem**, inclusive:
+Todas as modalidades entram no cockpit e na operação da frota própria.
 
-- ENTREGA PRÓPRIA;
-- ENTREGA TRANSPORTADORA;
-- SEDEX.
+### Entrega própria
 
-Nenhuma delas deve desaparecer do cockpit.
+Fluxo físico:
 
-A diferença está no tratamento operacional:
+```
+COPELI -> CLIENTE FINAL
+```
 
-- **ENTREGA PRÓPRIA**: entra normalmente no planejamento da frota própria e pode ser otimizada pelo HERE.
-- **ENTREGA TRANSPORTADORA**: aparece no cockpit com aviso visual de operação terceirizada. Não entra automaticamente na otimização da frota própria, salvo intervenção explícita do gestor.
-- **SEDEX**: aparece no cockpit com aviso visual de expedição postal. Não entra automaticamente na otimização da frota própria.
+O destino operacional da rota é o endereço do cliente.
 
-O gestor deve conseguir filtrar por modalidade, enxergar o volume e o valor de cada grupo e identificar rapidamente demandas que exigem acompanhamento externo.
+### Entrega transportadora
 
-Sugestão visual:
+Fluxo físico:
 
-- ENTREGA PRÓPRIA: status operacional normal;
-- TRANSPORTADORA: badge/alerta "TERCEIRIZADA";
-- SEDEX: badge/alerta "SEDEX / ACOMPANHAR POSTAGEM".
+```
+COPELI -> TRANSPORTADORA -> CLIENTE FINAL
+```
 
-Se uma entrega terceirizada ou SEDEX permanecer sem avanço além do SLA configurado, o Control Tower deve gerar alerta de exceção.
+A primeira perna é executada pela frota Copeli. O motorista leva o material até a transportadora específica. Depois do despacho, a entrega passa para acompanhamento externo.
+
+Para a HERE, vários pedidos destinados à mesma transportadora podem ser consolidados em **uma única parada física**, preservando o vínculo de todos os pedidos/volumes.
+
+### SEDEX
+
+Fluxo físico:
+
+```
+COPELI -> CORREIOS -> CLIENTE FINAL
+```
+
+A primeira perna também é executada pela frota Copeli. O motorista leva os volumes até o ponto/agência dos Correios configurado. Depois da postagem, passa para acompanhamento externo.
+
+Vários pedidos SEDEX podem compartilhar uma única parada física nos Correios.
+
+### Regra de segurança
+
+Transportadora e SEDEX **não podem ser roteirizados para o endereço final do cliente por engano**. Antes da otimização/liberação, o sistema exige um `destino_operacional` válido:
+
+- TRANSPORTADORA -> ponto físico da transportadora;
+- SEDEX -> ponto/agência dos Correios.
+
+Se o ponto ainda não estiver definido, a demanda continua visível no cockpit, porém a liberação é bloqueada com aviso ao gestor.
+
+### Estados externos
+
+Após a frota Copeli concluir a parada de despacho:
+
+```
+AGUARDANDO_DESPACHO
+  -> DESPACHADO
+  -> EM_TRANSITO
+  -> ENTREGUE
+```
+
+Também existe `EXCECAO` para ocorrências no trecho terceirizado.
+
+Assim medimos separadamente:
+
+- SLA Copeli até o ponto de despacho;
+- SLA externo;
+- SLA total até o cliente final.
+
+
+## Liberação oficial do planejamento
+
+A otimização continua sendo uma simulação até o gestor clicar em **Liberar planejamento**.
+
+Na liberação, o backend grava de forma transacional:
+
+- um `ct_planejamento` com snapshot JSON completo;
+- cada rota em `ct_rota`;
+- cada parada em `ct_parada`;
+- motorista, veículo, sequência, ETA, km, duração e valor planejados;
+- modalidade e destino operacional;
+- evento `ROTA_LIBERADA`.
+
+Depois da liberação, o ciclo oficial é:
+
+```
+ROTA: LIBERADA -> EM_ROTA -> FINALIZADA
+PARADA: PENDENTE -> EM_DESLOCAMENTO -> NO_CLIENTE -> ENTREGUE
+```
+
+As transições ficam registradas em `ct_evento`.
