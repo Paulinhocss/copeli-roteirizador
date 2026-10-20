@@ -27,7 +27,8 @@ CREATE INDEX IF NOT EXISTS ix_ct_rota_contele_vehicle
   ON ct_rota (contele_vehicle_id, data_operacao);
 
 CREATE TABLE IF NOT EXISTS ct_contele_posicao_atual (
-  contele_vehicle_id BIGINT PRIMARY KEY,
+  contele_vehicle_key VARCHAR(160) PRIMARY KEY,
+  contele_vehicle_id BIGINT,
   vehicle_name VARCHAR(160),
   plate_number VARCHAR(30),
   driver_name VARCHAR(160),
@@ -42,6 +43,10 @@ CREATE TABLE IF NOT EXISTS ct_contele_posicao_atual (
   sincronizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   payload JSONB NOT NULL DEFAULT '{}'::jsonb
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ct_contele_posicao_vehicle_id
+  ON ct_contele_posicao_atual (contele_vehicle_id)
+  WHERE contele_vehicle_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS ix_ct_contele_posicao_placa
   ON ct_contele_posicao_atual (plate_number);
