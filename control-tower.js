@@ -176,6 +176,10 @@
       '</div>' +
       '<div id="ct-detalhe"></div>' +
       '<div class="ct-bloco">' +
+        '<div class="ct-bloco-titulo"><span>Alertas operacionais</span><span id="ct-alertas-contagem"></span></div>' +
+        '<div id="ct-alertas"></div>' +
+      '</div>' +
+      '<div class="ct-bloco">' +
         '<div class="ct-bloco-titulo"><span>Ocorrencias abertas</span><span id="ct-ocorrencias-contagem"></span></div>' +
         '<div id="ct-ocorrencias"></div>' +
       '</div>';
@@ -251,6 +255,28 @@
         '</div>' +
         '<small>' + num(r.total_entregas) + ' entregas · ' + num(r.total_paradas) + ' paradas · ' +
           num(r.km_planejado).toFixed(1) + ' km · ' + duracao(r.duracao_planejada_segundos) + '</small>' +
+        '</div>';
+    }).join('');
+  }
+
+
+  function renderAlertas(alertas) {
+    var el = document.getElementById('ct-alertas');
+    var cont = document.getElementById('ct-alertas-contagem');
+    if (!el) return;
+    if (cont) cont.textContent = alertas.length;
+
+    if (!alertas.length) {
+      el.innerHTML = '<div class="ct-vazio">Nenhum alerta operacional aberto.</div>';
+      return;
+    }
+
+    el.innerHTML = alertas.slice(0, 30).map(function (a) {
+      return '<div class="ct-ocorrencia">' +
+        '<b>' + esc(a.titulo) + '</b>' +
+        '<span class="ct-badge ct-status-' + statusClasse(a.severidade === 'ALTA' || a.severidade === 'CRITICA' ? 'EXCECAO' : 'PENDENTE') + '">' +
+          esc(a.severidade) + '</span> ' +
+        esc(a.descricao || '') +
         '</div>';
     }).join('');
   }
@@ -417,12 +443,14 @@
       var resultados = await Promise.all([
         api('/api/control-tower/resumo?data=' + encodeURIComponent(data)),
         api('/api/control-tower/rotas?data=' + encodeURIComponent(data)),
+        api('/api/control-tower/alertas?status=ABERTO&limite=50'),
         api('/api/control-tower/ocorrencias?status=ABERTA&limite=50')
       ]);
 
       renderResumo(resultados[0].resumo || {});
       renderRotas(resultados[1].rotas || []);
-      renderOcorrencias(resultados[2].ocorrencias || []);
+      renderAlertas(resultados[2].alertas || []);
+      renderOcorrencias(resultados[3].ocorrencias || []);
 
       if (rotaAbertaId) {
         var existe = (resultados[1].rotas || []).some(function (r) {
