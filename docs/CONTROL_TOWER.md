@@ -358,3 +358,24 @@ PARADA: PENDENTE -> EM_DESLOCAMENTO -> NO_CLIENTE -> ENTREGUE
 ```
 
 As transições ficam registradas em `ct_evento`.
+
+
+## Parada física x entrega
+
+O modelo operacional distingue **parada física** de **entrega/pedido**.
+
+```text
+ct_rota
+  -> ct_parada            (local físico visitado pelo motorista)
+       -> ct_parada_entrega (um ou mais pedidos/entregas vinculados)
+```
+
+Exemplos:
+
+- 1 entrega própria para um cliente = 1 parada + 1 entrega;
+- 8 pedidos SEDEX levados à mesma agência = 1 parada nos Correios + 8 entregas;
+- 6 pedidos para a mesma transportadora = 1 parada na transportadora + 6 entregas.
+
+A HERE deve otimizar **paradas físicas**, não repetir o mesmo endereço de Correios/transportadora para cada pedido. O Control Tower preserva cada pedido individualmente para valor, SLA, rastreio, ocorrência e entrega final.
+
+No trecho externo, o status é controlado em `ct_parada_entrega`, permitindo códigos de rastreio e situações diferentes para pedidos que saíram na mesma parada.
