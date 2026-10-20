@@ -379,3 +379,38 @@ Exemplos:
 A HERE deve otimizar **paradas físicas**, não repetir o mesmo endereço de Correios/transportadora para cada pedido. O Control Tower preserva cada pedido individualmente para valor, SLA, rastreio, ocorrência e entrega final.
 
 No trecho externo, o status é controlado em `ct_parada_entrega`, permitindo códigos de rastreio e situações diferentes para pedidos que saíram na mesma parada.
+
+
+## Cockpit operacional implementado
+
+A interface possui uma aba **Control Tower** com:
+
+- data operacional;
+- rotas oficiais do dia;
+- rotas liberadas, em rota e finalizadas;
+- numero de paradas fisicas e numero de entregas;
+- valor em operacao e km planejado;
+- separacao por Entrega Propria, Transportadora e SEDEX;
+- acompanhamento do trecho externo;
+- detalhes de cada rota e parada;
+- comandos de inicio/finalizacao de rota;
+- chegada, entrega e nao realizacao por parada;
+- status externo individual por pedido;
+- ocorrencias e alertas operacionais;
+- mapa das paradas junto aos veiculos recebidos da Contele.
+
+O cockpit atualiza os dados operacionais periodicamente enquanto a aba esta ativa.
+
+## Motor inicial de alertas
+
+O backend avalia automaticamente as condicoes operacionais a cada minuto e mantem alertas com `fingerprint`, evitando duplicacao. As regras iniciais sao:
+
+- rota sem motorista;
+- rota sem veiculo;
+- veiculo em rota sem vinculo Contele;
+- posicao Contele desatualizada por mais de 5 minutos durante rota ativa;
+- parada nao entregue;
+- excecao em transporte externo;
+- entrega externa em transito sem rastreio/referencia.
+
+Quando a condicao deixa de existir, o alerta gerenciado e resolvido automaticamente.
