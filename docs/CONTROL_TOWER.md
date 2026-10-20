@@ -256,3 +256,30 @@ Com a integração Contele Fleet, parte desta fase pode ser antecipada:
 O Control Tower continua **independente do Vanguard One**.
 
 O Deak é fonte operacional/comercial e deve ser consumido preferencialmente em leitura. O PostgreSQL do Control Tower mantém o histórico logístico que não pode desaparecer quando o estado do pedido muda no ERP.
+
+
+## Tratamento dos tipos de entrega
+
+O Control Tower deve **trazer todas as demandas logísticas elegíveis da origem**, inclusive:
+
+- ENTREGA PRÓPRIA;
+- ENTREGA TRANSPORTADORA;
+- SEDEX.
+
+Nenhuma delas deve desaparecer do cockpit.
+
+A diferença está no tratamento operacional:
+
+- **ENTREGA PRÓPRIA**: entra normalmente no planejamento da frota própria e pode ser otimizada pelo HERE.
+- **ENTREGA TRANSPORTADORA**: aparece no cockpit com aviso visual de operação terceirizada. Não entra automaticamente na otimização da frota própria, salvo intervenção explícita do gestor.
+- **SEDEX**: aparece no cockpit com aviso visual de expedição postal. Não entra automaticamente na otimização da frota própria.
+
+O gestor deve conseguir filtrar por modalidade, enxergar o volume e o valor de cada grupo e identificar rapidamente demandas que exigem acompanhamento externo.
+
+Sugestão visual:
+
+- ENTREGA PRÓPRIA: status operacional normal;
+- TRANSPORTADORA: badge/alerta "TERCEIRIZADA";
+- SEDEX: badge/alerta "SEDEX / ACOMPANHAR POSTAGEM".
+
+Se uma entrega terceirizada ou SEDEX permanecer sem avanço além do SLA configurado, o Control Tower deve gerar alerta de exceção.
