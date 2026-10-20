@@ -1,4 +1,14 @@
+const fs = require('fs');
+const path = require('path');
 const postgres = require('../../infrastructure/postgres');
+
+async function garantirEstrutura() {
+  if (!postgres.configurado()) return false;
+  const arquivo = path.resolve(__dirname, '../../../sql/003_integracao_contele.sql');
+  const sql = fs.readFileSync(arquivo, 'utf8');
+  await postgres.query(sql);
+  return true;
+}
 
 async function sincronizarPosicoes(payload) {
   const itens = Array.isArray(payload && payload.last_points)
@@ -18,22 +28,36 @@ async function sincronizarPosicoes(payload) {
     const posicao = posicoes[0] || {};
     const conexao = conexoes[0] || {};
 
-    const vehicleId = Number(
+    const vehicleIdRaw = Number(
       vehicle.id || vehicle.vehicle_id || item.vehicle_id || 0
     );
-    if (!Number.isFinite(vehicleId) || vehicleId <= 0) continue;
+    const vehicleId = Number.isFinite(vehicleIdRaw) && vehicleIdRaw > 0
+      ? vehicleIdRaw
+      : null;
+    const plate = vehicle.plate_number || vehicle.plate || null;
+    const vehicleName = vehicle.name || vehicle.vehicle_name || null;
+    const vehicleKey = vehicleId
+      ? 'id:' + vehicleId
+      : plate
+        ? 'plate:' + String(plate).toUpperCase()
+        : vehicleName
+          ? 'name:' + String(vehicleName).toUpperCase()
+          : null;
+
+    if (!vehicleKey) continue;
 
     await postgres.query(`
       INSERT INTO ct_contele_posicao_atual (
-        contele_vehicle_id, vehicle_name, plate_number,
+        contele_vehicle_key, contele_vehicle_id, vehicle_name, plate_number,
         driver_name, driver_code, lat, lng, ignition, speed,
         odometer, imei, rastreador_atualizado_em, sincronizado_em, payload
       )
       VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW(),$13::jsonb
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW(),$14::jsonb
       )
-      ON CONFLICT (contele_vehicle_id)
+      ON CONFLICT (contele_vehicle_key)
       DO UPDATE SET
+        contele_vehicle_id = COALESCE(EXCLUDED.contele_vehicle_id, ct_contele_posicao_atual.contele_vehicle_id),
         vehicle_name = EXCLUDED.vehicle_name,
         plate_number = EXCLUDED.plate_number,
         driver_name = EXCLUDED.driver_name,
@@ -48,9 +72,10 @@ async function sincronizarPosicoes(payload) {
         sincronizado_em = NOW(),
         payload = EXCLUDED.payload
     `, [
+      vehicleKey,
       vehicleId,
-      vehicle.name || vehicle.vehicle_name || null,
-      vehicle.plate_number || vehicle.plate || null,
+      vehicleName,
+      plate,
       driver.name || null,
       driver.code || null,
       Number.isFinite(Number(posicao.lat)) ? Number(posicao.lat) : null,
@@ -71,6 +96,7 @@ async function sincronizarPosicoes(payload) {
 async function listarPosicoesCache() {
   const { rows } = await postgres.query(`
     SELECT
+      contele_vehicle_key,
       contele_vehicle_id,
       vehicle_name,
       plate_number,
@@ -91,6 +117,7 @@ async function listarPosicoesCache() {
 }
 
 module.exports = {
+  garantirEstrutura,
   sincronizarPosicoes,
   listarPosicoesCache,
 };
