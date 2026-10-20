@@ -14,6 +14,7 @@ const entregasRouter = require('./src/entregas/router');
 const roteirizacaoRouter = require('./src/roteirizacao/router');
 const controlTowerRepository = require('./src/control-tower/repository');
 const controlTowerExecucao = require('./src/control-tower/execucao.repository');
+const controlTowerAlertas = require('./src/control-tower/alertas.service');
 const controlTowerRouter = require('./src/control-tower/router');
 const conteleService = require('./src/integracoes/contele/service');
 const conteleRepository = require('./src/integracoes/contele/repository');
@@ -141,6 +142,7 @@ async function iniciar() {
       await controlTowerRepository.garantirEstrutura();
       await controlTowerExecucao.garantirEstrutura();
       await conteleRepository.garantirEstrutura();
+      controlTowerAlertas.iniciar();
       console.log('[POSTGRES] Estrutura de roteirizacao, Control Tower e Contele validada.');
     } catch (erro) {
       console.error('[POSTGRES] Nao foi possivel validar a estrutura:', erro.message);
