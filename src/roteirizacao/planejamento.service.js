@@ -43,8 +43,10 @@ function validarEntregas(entregas) {
         _indicePlanejamento: indice,
         latCliente: Number(entrega.lat),
         lngCliente: Number(entrega.lng),
+        cepCliente: entrega.cep,
         lat: latDestino,
         lng: lngDestino,
+        cep: destino.cep || entrega.cep,
       };
     }
 
@@ -55,6 +57,101 @@ function validarEntregas(entregas) {
       lng: Number(entrega.lng),
     };
   });
+}
+
+
+function quantidadeEntregas(item) {
+  return Array.isArray(item.entregasAgrupadas) && item.entregasAgrupadas.length
+    ? item.entregasAgrupadas.length
+    : 1;
+}
+
+function consolidarParadasFisicas(entregas) {
+  const resultado = [];
+  const externos = new Map();
+
+  entregas.forEach((entrega, indice) => {
+    const modalidade = String(entrega.modalidade || '').toUpperCase();
+    const destino = entrega.destino_operacional || entrega.destinoOperacional;
+
+    if (!['TRANSPORTADORA','SEDEX'].includes(modalidade) || !destino) {
+      resultado.push({
+        ...entrega,
+        entregasAgrupadas: [entrega],
+        quantidadeEntregas: 1,
+        paradaFisicaConsolidada: false,
+      });
+      return;
+    }
+
+    const chave = [
+      modalidade,
+      destino.id || '',
+      destino.codigo_externo || '',
+      destino.nome || '',
+      Number(destino.lat).toFixed(6),
+      Number(destino.lng).toFixed(6),
+    ].join('|');
+
+    if (!externos.has(chave)) {
+      const grupo = {
+        ...entrega,
+        _indicePlanejamento: indice,
+        cliente: destino.nome || (modalidade === 'SEDEX' ? 'CORREIOS' : 'TRANSPORTADORA'),
+        CLIENTE: destino.nome || (modalidade === 'SEDEX' ? 'CORREIOS' : 'TRANSPORTADORA'),
+        endereco: destino.endereco || entrega.endereco,
+        ENDENT: destino.endereco || entrega.ENDENT,
+        numero: destino.numero || entrega.numero,
+        NumEnt: destino.numero || entrega.NumEnt,
+        bairro: destino.bairro || entrega.bairro,
+        BAIRRO: destino.bairro || entrega.BAIRRO,
+        cidade: destino.cidade || entrega.cidade,
+        CIDADE: destino.cidade || entrega.CIDADE,
+        cep: destino.cep || entrega.cep,
+        CEP: destino.cep || entrega.CEP,
+        lat: Number(destino.lat),
+        lng: Number(destino.lng),
+        pedido: null,
+        PEDIDO: null,
+        num_nf: null,
+        NumNF: null,
+        valor: 0,
+        VALOR: 0,
+        entregasAgrupadas: [],
+        quantidadeEntregas: 0,
+        paradaFisicaConsolidada: true,
+      };
+      externos.set(chave, grupo);
+      resultado.push(grupo);
+    }
+
+    const grupo = externos.get(chave);
+    grupo.entregasAgrupadas.push(entrega);
+    grupo.quantidadeEntregas = grupo.entregasAgrupadas.length;
+
+    const valor = Number(
+      String(entrega.valor ?? entrega.VALOR ?? 0).replace(',', '.')
+    );
+    if (Number.isFinite(valor)) {
+      grupo.valor += valor;
+      grupo.VALOR += valor;
+    }
+
+    grupo.obs = grupo.quantidadeEntregas + ' entrega(s) para despacho externo';
+    grupo.Observacao = grupo.obs;
+  });
+
+  return resultado;
+}
+
+function totalEntregasRotas(rotas) {
+  return rotas.reduce(
+    (total, rota) => total + (rota.entregas || []).reduce(
+      (soma, item) => soma + quantidadeEntregas(item),
+      0
+    ),
+    0
+  );
 }
 
 function criarVeiculoVirtual(motorista, quantidade) {
@@ -142,8 +239,12 @@ async function planejarPorCep(entregas, contexto, opcoes) {
     naoAtribuidas,
     resumo: {
       entregasRecebidas: entregas.length,
-      entregasRoteirizadas: rotas.reduce((soma, rota) => soma + rota.entregas.length, 0),
-      naoAtribuidas: naoAtribuidas.length,
+      entregasRoteirizadas: totalEntregasRotas(rotas),
+      paradasPlanejadas: rotas.reduce((soma, rota) => soma + rota.entregas.length, 0),
+      naoAtribuidas: naoAtribuidas.reduce(
+        (soma, item) => soma + quantidadeEntregas(item.entrega || item),
+        0
+      ),
       rotas: rotas.length,
     },
   };
@@ -175,11 +276,15 @@ async function planejarOtimizado(entregas, contexto, opcoes) {
     ...resultado,
     resumo: {
       entregasRecebidas: entregas.length,
-      entregasRoteirizadas: resultado.rotas.reduce(
+      entregasRoteirizadas: totalEntregasRotas(resultado.rotas),
+      paradasPlanejadas: resultado.rotas.reduce(
         (soma, rota) => soma + rota.entregas.length,
         0
       ),
-      naoAtribuidas: resultado.naoAtribuidas.length,
+      naoAtribuidas: resultado.naoAtribuidas.reduce(
+        (soma, item) => soma + quantidadeEntregas(item.entrega || item),
+        0
+      ),
       rotas: resultado.rotas.length,
       veiculosConsiderados: veiculos.length,
     },
@@ -190,7 +295,8 @@ async function planejar(entregasBrutas, opcoes = {}) {
   const entregasComDestinos = await despachos.aplicarDestinosOperacionais(
     Array.isArray(entregasBrutas) ? entregasBrutas : []
   );
-  const entregas = validarEntregas(entregasComDestinos);
+  const entregasValidadas = validarEntregas(entregasComDestinos);
+  const entregas = consolidarParadasFisicas(entregasValidadas);
 
   const [configuracao, faixas, motoristas, veiculos] = await Promise.all([
     configuracoes.obterConfiguracao(),
@@ -211,5 +317,6 @@ async function planejar(entregasBrutas, opcoes = {}) {
 module.exports = {
   encontrarFaixa,
   validarEntregas,
+  consolidarParadasFisicas,
   planejar,
 };
