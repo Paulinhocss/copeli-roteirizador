@@ -331,11 +331,29 @@ async function obterRota(id) {
     'LEFT JOIN roteirizacao_motorista m ON m.id=r.motorista_id LEFT JOIN roteirizacao_veiculo v ON v.id=r.veiculo_id ' +
     'WHERE r.id=$1', [id])).rows[0];
   if (!r) return null;
-  const [p, e] = await Promise.all([
+
+  const [p, e, filhos] = await Promise.all([
     postgres.query('SELECT * FROM ct_parada WHERE rota_id=$1 ORDER BY ordem_planejada', [id]),
     postgres.query('SELECT * FROM ct_evento WHERE rota_id=$1 ORDER BY ocorreu_em,id', [id]),
+    postgres.query(
+      'SELECT pe.* FROM ct_parada_entrega pe INNER JOIN ct_parada p ON p.id=pe.parada_id ' +
+      'WHERE p.rota_id=$1 ORDER BY p.ordem_planejada,pe.id',
+      [id]
+    ),
   ]);
-  return Object.assign({}, r, { paradas: p.rows, eventos: e.rows });
+
+  const porParada = new Map();
+  filhos.rows.forEach((item) => {
+    const chave = Number(item.parada_id);
+    if (!porParada.has(chave)) porParada.set(chave, []);
+    porParada.get(chave).push(item);
+  });
+
+  const paradas = p.rows.map((parada) => Object.assign({}, parada, {
+    entregas: porParada.get(Number(parada.id)) || [],
+  }));
+
+  return Object.assign({}, r, { paradas, eventos: e.rows });
 }
 
 const rotaPermitida = {
@@ -369,6 +387,45 @@ async function atualizarStatusRota(id, novo, op = {}) {
   });
 }
 
+
+const externoPermitido = {
+  AGUARDANDO_DESPACHO: ['DESPACHADO','EXCECAO'],
+  DESPACHADO: ['EM_TRANSITO','ENTREGUE','EXCECAO'],
+  EM_TRANSITO: ['ENTREGUE','EXCECAO'],
+  EXCECAO: ['DESPACHADO','EM_TRANSITO','ENTREGUE'],
+  ENTREGUE: [],
+  NAO_APLICAVEL: [],
+};
+
+async function recalcularStatusExternoParada(db, paradaId) {
+  const { rows } = await db.query(
+    'SELECT status_externo,COUNT(*)::int AS quantidade FROM ct_parada_entrega ' +
+    'WHERE parada_id=$1 GROUP BY status_externo',
+    [paradaId]
+  );
+
+  if (!rows.length) return null;
+
+  const contagem = Object.fromEntries(rows.map((r) => [r.status_externo, Number(r.quantidade)]));
+  const total = rows.reduce((s, r) => s + Number(r.quantidade), 0);
+
+  let status = 'AGUARDANDO_DESPACHO';
+  if (contagem.EXCECAO) status = 'EXCECAO';
+  else if ((contagem.ENTREGUE || 0) === total) status = 'ENTREGUE';
+  else if (contagem.EM_TRANSITO) status = 'EM_TRANSITO';
+  else if ((contagem.DESPACHADO || 0) + (contagem.ENTREGUE || 0) === total) status = 'DESPACHADO';
+
+  await db.query(
+    "UPDATE ct_parada SET status_externo=$2," +
+    "despachada_em=CASE WHEN $2 IN ('DESPACHADO','EM_TRANSITO','ENTREGUE') THEN COALESCE(despachada_em,NOW()) ELSE despachada_em END," +
+    "entregue_final_em=CASE WHEN $2='ENTREGUE' THEN COALESCE(entregue_final_em,NOW()) ELSE entregue_final_em END," +
+    'atualizado_em=NOW() WHERE id=$1',
+    [paradaId, status]
+  );
+
+  return status;
+}
+
 const paradaPermitida = {
   PENDENTE: ['EM_DESLOCAMENTO','NO_CLIENTE','ENTREGUE','NAO_ENTREGUE','REAGENDADA','CANCELADA'],
   EM_DESLOCAMENTO: ['NO_CLIENTE','ENTREGUE','NAO_ENTREGUE','REAGENDADA','CANCELADA'],
@@ -400,6 +457,16 @@ async function atualizarStatusParada(id, novo, op = {}) {
       "motivo_nao_entrega=CASE WHEN $2='NAO_ENTREGUE' THEN $3 ELSE motivo_nao_entrega END,status_externo=$4," +
       "despachada_em=CASE WHEN $4='DESPACHADO' THEN COALESCE(despachada_em,NOW()) ELSE despachada_em END,atualizado_em=NOW() " +
       'WHERE id=$1 RETURNING *', [id, status, motivo, externo])).rows[0];
+
+    if (status === 'ENTREGUE' && atual.modalidade !== 'PROPRIA') {
+      await db.query(
+        "UPDATE ct_parada_entrega SET status_externo='DESPACHADO'," +
+        "despachada_em=COALESCE(despachada_em,NOW()),atualizado_em=NOW() " +
+        "WHERE parada_id=$1 AND status_externo='AGUARDANDO_DESPACHO'",
+        [id]
+      );
+      await recalcularStatusExternoParada(db, id);
+    }
     await db.query(
       "INSERT INTO ct_evento (rota_id,parada_id,tipo,fonte,usuario,dados) VALUES ($1,$2,'PARADA_STATUS_ALTERADO',$3,$4,$5::jsonb)",
       [atual.rota_id, id, op.fonte || 'CONTROL_TOWER', texto(op.usuario),
@@ -409,32 +476,123 @@ async function atualizarStatusParada(id, novo, op = {}) {
   });
 }
 
-async function atualizarStatusExterno(id, novo, op = {}) {
+async function atualizarStatusExternoEntrega(id, novo, op = {}) {
   const status = String(novo || '').toUpperCase();
-  if (!['AGUARDANDO_DESPACHO','DESPACHADO','EM_TRANSITO','ENTREGUE','EXCECAO'].includes(status)) {
-    const erro = new Error('Status externo invalido.');
-    erro.code = 'PARADA_INVALIDA';
-    throw erro;
-  }
+
   return postgres.transacao(async (db) => {
-    const atual = (await db.query('SELECT * FROM ct_parada WHERE id=$1 FOR UPDATE', [id])).rows[0];
+    const atual = (await db.query(
+      'SELECT pe.*,p.rota_id FROM ct_parada_entrega pe ' +
+      'INNER JOIN ct_parada p ON p.id=pe.parada_id WHERE pe.id=$1 FOR UPDATE',
+      [id]
+    )).rows[0];
     if (!atual) return null;
+
     if (atual.modalidade === 'PROPRIA') {
       const erro = new Error('Entrega propria nao possui acompanhamento externo.');
       erro.code = 'PARADA_INVALIDA';
       throw erro;
     }
+
+    if (!(externoPermitido[atual.status_externo] || []).includes(status)) {
+      const erro = new Error(
+        'Transicao externa ' + atual.status_externo + ' -> ' + status + ' nao permitida.'
+      );
+      erro.code = 'TRANSICAO_INVALIDA';
+      throw erro;
+    }
+
+    const codigoRastreio = texto(op.codigo_rastreio);
     const r = (await db.query(
-      "UPDATE ct_parada SET status_externo=$2,codigo_rastreio=COALESCE($3,codigo_rastreio)," +
-      "despachada_em=CASE WHEN $2='DESPACHADO' THEN COALESCE(despachada_em,NOW()) ELSE despachada_em END," +
-      "entregue_final_em=CASE WHEN $2='ENTREGUE' THEN COALESCE(entregue_final_em,NOW()) ELSE entregue_final_em END,atualizado_em=NOW() " +
-      'WHERE id=$1 RETURNING *', [id, status, texto(op.codigo_rastreio)])).rows[0];
+      "UPDATE ct_parada_entrega SET status_externo=$2,codigo_rastreio=COALESCE($3,codigo_rastreio)," +
+      "despachada_em=CASE WHEN $2 IN ('DESPACHADO','EM_TRANSITO','ENTREGUE') THEN COALESCE(despachada_em,NOW()) ELSE despachada_em END," +
+      "entregue_final_em=CASE WHEN $2='ENTREGUE' THEN COALESCE(entregue_final_em,NOW()) ELSE entregue_final_em END," +
+      'atualizado_em=NOW() WHERE id=$1 RETURNING *',
+      [id, status, codigoRastreio]
+    )).rows[0];
+
+    const statusParada = await recalcularStatusExternoParada(db, atual.parada_id);
+
     await db.query(
-      "INSERT INTO ct_evento (rota_id,parada_id,tipo,fonte,usuario,dados) VALUES ($1,$2,'STATUS_EXTERNO_ALTERADO',$3,$4,$5::jsonb)",
-      [atual.rota_id, id, op.fonte || 'CONTROL_TOWER', texto(op.usuario),
-       JSON.stringify({ de: atual.status_externo, para: status, codigo_rastreio: texto(op.codigo_rastreio) })]
+      "INSERT INTO ct_evento (rota_id,parada_id,tipo,fonte,usuario,dados) " +
+      "VALUES ($1,$2,'STATUS_EXTERNO_ENTREGA_ALTERADO',$3,$4,$5::jsonb)",
+      [
+        atual.rota_id,
+        atual.parada_id,
+        op.fonte || 'CONTROL_TOWER',
+        texto(op.usuario),
+        JSON.stringify({
+          entrega_id: id,
+          pedido: atual.pedido,
+          de: atual.status_externo,
+          para: status,
+          status_parada: statusParada,
+          codigo_rastreio: codigoRastreio,
+        }),
+      ]
     );
+
     return r;
+  });
+}
+
+async function atualizarStatusExternoParada(id, novo, op = {}) {
+  const status = String(novo || '').toUpperCase();
+  if (!['DESPACHADO','EM_TRANSITO','ENTREGUE','EXCECAO'].includes(status)) {
+    const erro = new Error('Status externo invalido para atualizacao em lote.');
+    erro.code = 'PARADA_INVALIDA';
+    throw erro;
+  }
+
+  return postgres.transacao(async (db) => {
+    const parada = (await db.query('SELECT * FROM ct_parada WHERE id=$1 FOR UPDATE', [id])).rows[0];
+    if (!parada) return null;
+    if (parada.modalidade === 'PROPRIA') {
+      const erro = new Error('Entrega propria nao possui acompanhamento externo.');
+      erro.code = 'PARADA_INVALIDA';
+      throw erro;
+    }
+
+    const filhos = (await db.query(
+      'SELECT * FROM ct_parada_entrega WHERE parada_id=$1 ORDER BY id FOR UPDATE',
+      [id]
+    )).rows;
+
+    for (const filho of filhos) {
+      if (filho.status_externo === status) continue;
+      if (!(externoPermitido[filho.status_externo] || []).includes(status)) {
+        const erro = new Error(
+          'Uma entrega da parada nao permite transicao ' + filho.status_externo + ' -> ' + status + '.'
+        );
+        erro.code = 'TRANSICAO_INVALIDA';
+        throw erro;
+      }
+    }
+
+    await db.query(
+      "UPDATE ct_parada_entrega SET status_externo=$2," +
+      "codigo_rastreio=CASE WHEN $3::varchar IS NOT NULL AND quantidade_entregas=1 THEN $3 ELSE codigo_rastreio END," +
+      "despachada_em=CASE WHEN $2 IN ('DESPACHADO','EM_TRANSITO','ENTREGUE') THEN COALESCE(despachada_em,NOW()) ELSE despachada_em END," +
+      "entregue_final_em=CASE WHEN $2='ENTREGUE' THEN COALESCE(entregue_final_em,NOW()) ELSE entregue_final_em END," +
+      'atualizado_em=NOW() ' +
+      'FROM (SELECT COUNT(*)::int AS quantidade_entregas FROM ct_parada_entrega WHERE parada_id=$1) q ' +
+      'WHERE parada_id=$1',
+      [id, status, texto(op.codigo_rastreio)]
+    );
+
+    const statusParada = await recalcularStatusExternoParada(db, id);
+    await db.query(
+      "INSERT INTO ct_evento (rota_id,parada_id,tipo,fonte,usuario,dados) " +
+      "VALUES ($1,$2,'STATUS_EXTERNO_PARADA_ALTERADO',$3,$4,$5::jsonb)",
+      [
+        parada.rota_id,
+        id,
+        op.fonte || 'CONTROL_TOWER',
+        texto(op.usuario),
+        JSON.stringify({ para: status, status_parada: statusParada, total_entregas: filhos.length }),
+      ]
+    );
+
+    return obterRota(parada.rota_id);
   });
 }
 
@@ -445,6 +603,7 @@ module.exports = {
   obterRota,
   atualizarStatusRota,
   atualizarStatusParada,
-  atualizarStatusExterno,
+  atualizarStatusExternoEntrega,
+  atualizarStatusExternoParada,
   modalidade,
 };
