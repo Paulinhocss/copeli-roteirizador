@@ -23,8 +23,13 @@ function numero(v) {
 
 async function garantirEstrutura() {
   if (!postgres.configurado()) return false;
-  const arquivo = path.resolve(__dirname, '../../sql/004_control_tower_execucao.sql');
-  await postgres.query(fs.readFileSync(arquivo, 'utf8'));
+  for (const relativo of [
+    '../../sql/004_control_tower_execucao.sql',
+    '../../sql/006_parada_multientrega.sql',
+  ]) {
+    const arquivo = path.resolve(__dirname, relativo);
+    await postgres.query(fs.readFileSync(arquivo, 'utf8'));
+  }
   return true;
 }
 
@@ -60,6 +65,8 @@ function destino(entrega, mod) {
     throw erro;
   }
   return {
+    id: d.id || null,
+    codigo_externo: texto(d.codigo_externo),
     tipo: mod === 'SEDEX' ? 'CORREIOS' : 'TRANSPORTADORA',
     nome: texto(d.nome),
     endereco: texto(d.endereco),
@@ -71,6 +78,37 @@ function destino(entrega, mod) {
     lat: numero(d.lat),
     lng: numero(d.lng),
   };
+}
+
+
+function agruparParadas(entregas) {
+  const grupos = [];
+  const mapa = new Map();
+
+  entregas.forEach((entrega, indice) => {
+    const mod = modalidade(entrega);
+    const d = destino(entrega, mod);
+    const chave = mod === 'PROPRIA'
+      ? 'PROPRIA|' + indice
+      : [
+          mod,
+          d.id || '',
+          d.codigo_externo || '',
+          d.nome || '',
+          d.lat === null ? '' : d.lat,
+          d.lng === null ? '' : d.lng,
+        ].join('|');
+
+    let grupo = mapa.get(chave);
+    if (!grupo) {
+      grupo = { modalidade: mod, destino: d, entregas: [], primeiraOrdem: indice };
+      mapa.set(chave, grupo);
+      grupos.push(grupo);
+    }
+    grupo.entregas.push(entrega);
+  });
+
+  return grupos.sort((a, b) => a.primeiraOrdem - b.primeiraOrdem);
 }
 
 function validar(dados) {
