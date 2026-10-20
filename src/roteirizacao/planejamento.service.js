@@ -238,7 +238,10 @@ async function planejarPorCep(entregas, contexto, opcoes) {
     rotas,
     naoAtribuidas,
     resumo: {
-      entregasRecebidas: entregas.length,
+      entregasRecebidas: entregas.reduce(
+        (soma, item) => soma + quantidadeEntregas(item),
+        0
+      ),
       entregasRoteirizadas: totalEntregasRotas(rotas),
       paradasPlanejadas: rotas.reduce((soma, rota) => soma + rota.entregas.length, 0),
       naoAtribuidas: naoAtribuidas.reduce(
@@ -275,7 +278,10 @@ async function planejarOtimizado(entregas, contexto, opcoes) {
     modo: 'OTIMIZADA',
     ...resultado,
     resumo: {
-      entregasRecebidas: entregas.length,
+      entregasRecebidas: entregas.reduce(
+        (soma, item) => soma + quantidadeEntregas(item),
+        0
+      ),
       entregasRoteirizadas: totalEntregasRotas(resultado.rotas),
       paradasPlanejadas: resultado.rotas.reduce(
         (soma, rota) => soma + rota.entregas.length,
