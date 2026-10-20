@@ -13,6 +13,9 @@ const entregasRouter = require('./src/entregas/router');
 const roteirizacaoRouter = require('./src/roteirizacao/router');
 const controlTowerRepository = require('./src/control-tower/repository');
 const controlTowerRouter = require('./src/control-tower/router');
+const conteleService = require('./src/integracoes/contele/service');
+const conteleRepository = require('./src/integracoes/contele/repository');
+const conteleRouter = require('./src/integracoes/contele/router');
 
 const app = express();
 
@@ -29,6 +32,7 @@ app.get('/', (_req, res) => {
       here: Boolean(ambiente.hereApiKey),
       deak: deak.configurado(),
       postgres: postgres.configurado(),
+      contele: conteleService.configurado(),
     },
   });
 });
@@ -119,6 +123,7 @@ app.get('/fila', async (req, res) => {
 app.use('/api/entregas', entregasRouter);
 app.use('/api/roteirizacao', roteirizacaoRouter);
 app.use('/api/control-tower', controlTowerRouter);
+app.use('/api/integracoes/contele', conteleRouter);
 
 app.use((erro, _req, res, _next) => {
   console.error('[HTTP] Erro nao tratado:', erro.message);
@@ -130,7 +135,8 @@ async function iniciar() {
     try {
       await configuracoes.garantirEstrutura();
       await controlTowerRepository.garantirEstrutura();
-      console.log('[POSTGRES] Estrutura de roteirizacao e Control Tower validada.');
+      await conteleRepository.garantirEstrutura();
+      console.log('[POSTGRES] Estrutura de roteirizacao, Control Tower e Contele validada.');
     } catch (erro) {
       console.error('[POSTGRES] Nao foi possivel validar a estrutura:', erro.message);
     }
@@ -140,6 +146,10 @@ async function iniciar() {
 
   if (!ambiente.hereApiKey) {
     console.warn('[HERE] HERE_API_KEY nao configurada. Geocodificacao e roteirizacao ficarao indisponiveis.');
+  }
+
+  if (!conteleService.configurado()) {
+    console.warn('[CONTELE] CONTELE_API_KEY nao configurada. Telemetria em tempo real ficara indisponivel.');
   }
 
   if (!deak.configurado()) {
