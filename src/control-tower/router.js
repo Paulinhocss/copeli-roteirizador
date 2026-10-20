@@ -1,5 +1,6 @@
 const express = require('express');
 const repository = require('./repository');
+const execucao = require('./execucao.repository');
 
 const router = express.Router();
 
@@ -7,6 +8,10 @@ function responderErro(res, erro) {
   const erros400 = new Set([
     'OCORRENCIA_INVALIDA',
     'MELHORIA_INVALIDA',
+    'PLANEJAMENTO_INVALIDO',
+    'DESTINO_DESPACHO_OBRIGATORIO',
+    'TRANSICAO_INVALIDA',
+    'PARADA_INVALIDA',
   ]);
 
   const status = erro.code === 'POSTGRES_NAO_CONFIGURADO'
@@ -28,6 +33,81 @@ router.get('/resumo', async (req, res) => {
       req.query.data || repository.hojeSaoPaulo()
     );
     res.json({ ok: true, resumo });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+
+router.post('/planejamentos/liberar', async (req, res) => {
+  try {
+    const resultado = await execucao.liberarPlanejamento(req.body || {});
+    res.status(201).json({ ok: true, ...resultado });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+router.get('/rotas', async (req, res) => {
+  try {
+    const rotas = await execucao.listarRotas({
+      data: req.query.data,
+      status: req.query.status,
+      limite: req.query.limite,
+    });
+    res.json({ ok: true, rotas });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+router.get('/rotas/:id', async (req, res) => {
+  try {
+    const rota = await execucao.obterRota(Number(req.params.id));
+    if (!rota) return res.status(404).json({ ok: false, error: 'Rota nao encontrada.' });
+    res.json({ ok: true, rota });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+router.patch('/rotas/:id/status', async (req, res) => {
+  try {
+    const rota = await execucao.atualizarStatusRota(
+      Number(req.params.id),
+      req.body && req.body.status,
+      req.body || {}
+    );
+    if (!rota) return res.status(404).json({ ok: false, error: 'Rota nao encontrada.' });
+    res.json({ ok: true, rota });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+router.patch('/paradas/:id/status', async (req, res) => {
+  try {
+    const parada = await execucao.atualizarStatusParada(
+      Number(req.params.id),
+      req.body && req.body.status,
+      req.body || {}
+    );
+    if (!parada) return res.status(404).json({ ok: false, error: 'Parada nao encontrada.' });
+    res.json({ ok: true, parada });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+router.patch('/paradas/:id/status-externo', async (req, res) => {
+  try {
+    const parada = await execucao.atualizarStatusExterno(
+      Number(req.params.id),
+      req.body && req.body.status,
+      req.body || {}
+    );
+    if (!parada) return res.status(404).json({ ok: false, error: 'Parada nao encontrada.' });
+    res.json({ ok: true, parada });
   } catch (erro) {
     responderErro(res, erro);
   }
