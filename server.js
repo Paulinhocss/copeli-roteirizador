@@ -18,6 +18,7 @@ const controlTowerRouter = require('./src/control-tower/router');
 const conteleService = require('./src/integracoes/contele/service');
 const conteleRepository = require('./src/integracoes/contele/repository');
 const conteleRouter = require('./src/integracoes/contele/router');
+const conteleRealtime = require('./src/integracoes/contele/realtime');
 
 const app = express();
 
@@ -154,6 +155,10 @@ async function iniciar() {
 
   if (!conteleService.configurado()) {
     console.warn('[CONTELE] CONTELE_API_KEY nao configurada. Telemetria em tempo real ficara indisponivel.');
+  } else if (postgres.configurado()) {
+    conteleRealtime.iniciar()
+      .then(() => console.log('[CONTELE] Sincronizacao em tempo real iniciada.'))
+      .catch((erro) => console.error('[CONTELE] Falha ao iniciar sincronizacao:', erro.message));
   }
 
   if (!deak.configurado()) {
