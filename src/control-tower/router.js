@@ -1,6 +1,7 @@
 const express = require('express');
 const repository = require('./repository');
 const execucao = require('./execucao.repository');
+const alertas = require('./alertas.service');
 
 const router = express.Router();
 
@@ -124,6 +125,28 @@ router.patch('/paradas/:id/status-externo', async (req, res) => {
     );
     if (!parada) return res.status(404).json({ ok: false, error: 'Parada nao encontrada.' });
     res.json({ ok: true, parada });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+
+router.get('/alertas', async (req, res) => {
+  try {
+    const itens = await alertas.listar({
+      status: req.query.status,
+      limite: req.query.limite,
+    });
+    res.json({ ok: true, alertas: itens, motor: alertas.statusServico() });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+router.post('/alertas/avaliar', async (_req, res) => {
+  try {
+    const resultado = await alertas.avaliar();
+    res.json({ ok: true, resultado, motor: alertas.statusServico() });
   } catch (erro) {
     responderErro(res, erro);
   }
