@@ -12,6 +12,7 @@ function responderErro(res, erro) {
     'DESTINO_DESPACHO_OBRIGATORIO',
     'TRANSICAO_INVALIDA',
     'PARADA_INVALIDA',
+    'ROTA_PENDENTE',
   ]);
 
   const status = erro.code === 'POSTGRES_NAO_CONFIGURADO'
