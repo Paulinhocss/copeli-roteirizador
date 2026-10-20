@@ -1,6 +1,12 @@
 -- Control Tower - uma parada fisica pode conter varias entregas/pedidos.
 -- Ex.: 8 pedidos SEDEX = 1 parada nos Correios + 8 entregas vinculadas.
 
+ALTER TABLE ct_planejamento
+  ADD COLUMN IF NOT EXISTS total_entregas INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE ct_rota
+  ADD COLUMN IF NOT EXISTS total_paradas INTEGER NOT NULL DEFAULT 0;
+
 ALTER TABLE ct_parada
   ADD COLUMN IF NOT EXISTS quantidade_entregas INTEGER NOT NULL DEFAULT 1;
 
