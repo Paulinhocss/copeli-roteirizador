@@ -99,9 +99,24 @@ router.patch('/paradas/:id/status', async (req, res) => {
   }
 });
 
+router.patch('/entregas/:id/status-externo', async (req, res) => {
+  try {
+    const entrega = await execucao.atualizarStatusExternoEntrega(
+      Number(req.params.id),
+      req.body && req.body.status,
+      req.body || {}
+    );
+    if (!entrega) return res.status(404).json({ ok: false, error: 'Entrega nao encontrada.' });
+    res.json({ ok: true, entrega });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+// Compatibilidade e operacao em lote: atualiza todas as entregas da parada.
 router.patch('/paradas/:id/status-externo', async (req, res) => {
   try {
-    const parada = await execucao.atualizarStatusExterno(
+    const parada = await execucao.atualizarStatusExternoParada(
       Number(req.params.id),
       req.body && req.body.status,
       req.body || {}
