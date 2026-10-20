@@ -1,6 +1,7 @@
 const express = require('express');
 const service = require('./service');
 const repository = require('./repository');
+const realtime = require('./realtime');
 
 const router = express.Router();
 
@@ -24,7 +25,22 @@ router.get('/status', (_req, res) => {
     ok: true,
     configurado: service.configurado(),
     integracao: 'Contele Fleet',
+    realtime: realtime.obterStatus(),
   });
+});
+
+
+router.get('/stream', (req, res) => {
+  realtime.registrarCliente(req, res);
+});
+
+router.post('/sincronizar-agora', async (_req, res) => {
+  try {
+    await realtime.ciclo();
+    res.json({ ok: true, realtime: realtime.obterStatus() });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
 });
 
 router.get('/veiculos', async (_req, res) => {
