@@ -6,6 +6,7 @@
     : (window.ROTEIRIZADOR_API || window.location.origin);
 
   let modoAtual = null;
+  let pontosDespachoCache = [];
 
   function inserirIntegracaoDeak() {
     const bloco = document.getElementById('input-xlsx');
@@ -82,6 +83,109 @@
     });
   }
 
+
+  async function carregarPontosDespacho() {
+    try {
+      const resposta = await fetch(apiBase + '/api/roteirizacao/pontos-despacho?ativos=1');
+      const dados = await resposta.json();
+      if (!resposta.ok || !dados.ok) return [];
+      pontosDespachoCache = dados.pontos || [];
+      return pontosDespachoCache;
+    } catch {
+      pontosDespachoCache = [];
+      return [];
+    }
+  }
+
+  function aplicarPontoPadraoSedex() {
+    const padrao = pontosDespachoCache.find(
+      (p) => p.tipo === 'CORREIOS' && p.padrao && p.ativo !== false
+    );
+    if (!padrao) return;
+
+    entregas.forEach((entrega) => {
+      if (String(entrega.modalidade || '').toUpperCase() === 'SEDEX' &&
+          !entrega.destino_operacional) {
+        entrega.destino_operacional = { ...padrao };
+      }
+    });
+  }
+
+  function renderizarPendenciasDespacho() {
+    const status = document.getElementById('deak-status');
+    if (!status) return;
+
+    let box = document.getElementById('deak-despachos');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'deak-despachos';
+      box.style.cssText =
+        'margin-top:7px;border:1px solid var(--border);border-radius:8px;padding:7px;background:#fff';
+      status.insertAdjacentElement('afterend', box);
+    }
+
+    const externas = entregas
+      .map((entrega, indice) => ({ entrega, indice }))
+      .filter(({ entrega }) => ['TRANSPORTADORA','SEDEX'].includes(
+        String(entrega.modalidade || '').toUpperCase()
+      ));
+
+    if (!externas.length) {
+      box.style.display = 'none';
+      box.innerHTML = '';
+      return;
+    }
+
+    box.style.display = 'block';
+    const pendentes = externas.filter(({ entrega }) => !entrega.destino_operacional).length;
+
+    box.innerHTML =
+      '<div style="font-size:10px;font-weight:700;margin-bottom:5px">Despachos externos · ' +
+      externas.length + ' entrega(s)' +
+      (pendentes ? ' · <span style="color:var(--amber)">' + pendentes + ' pendente(s)</span>' : '') +
+      '</div>' +
+      externas.map(({ entrega, indice }) => {
+        const mod = String(entrega.modalidade || '').toUpperCase();
+        const pontos = pontosDespachoCache.filter((p) =>
+          p.ativo !== false && p.tipo === (mod === 'SEDEX' ? 'CORREIOS' : 'TRANSPORTADORA')
+        );
+        const atualId = entrega.destino_operacional && entrega.destino_operacional.id;
+        const opcoes =
+          '<option value="">— definir ponto de despacho —</option>' +
+          pontos.map((p) =>
+            '<option value="' + p.id + '"' +
+            (String(p.id) === String(atualId) ? ' selected' : '') + '>' +
+            (p.nome || ('Ponto ' + p.id)) +
+            (p.codigo_externo ? ' · Deak ' + p.codigo_externo : '') +
+            '</option>'
+          ).join('');
+
+        return '<div style="padding:5px 0;border-top:1px solid var(--border)">' +
+          '<div style="font-size:9px;margin-bottom:3px"><b>#' + (entrega.pedido || '—') +
+          '</b> · ' + mod + ' · ' + (entrega.cliente || '—') + '</div>' +
+          '<select style="font-size:10px;width:100%;padding:4px" ' +
+          'onchange="definirPontoDespacho(' + indice + ',this.value)">' +
+          opcoes + '</select></div>';
+      }).join('');
+  }
+
+  window.definirPontoDespacho = function (indice, pontoId) {
+    const entrega = entregas[Number(indice)];
+    if (!entrega) return;
+
+    if (!pontoId) {
+      delete entrega.destino_operacional;
+      renderizarPendenciasDespacho();
+      return;
+    }
+
+    const ponto = pontosDespachoCache.find((p) => String(p.id) === String(pontoId));
+    if (!ponto) return;
+
+    entrega.destino_operacional = { ...ponto };
+    renderizarPendenciasDespacho();
+  };
+
   window.carregarEntregasDeak = async function () {
     const botao = document.getElementById('btn-carregar-deak');
     const status = document.getElementById('deak-status');
@@ -91,7 +195,10 @@
       botao.textContent = 'Carregando entregas...';
       status.textContent = 'Consultando tabelas nativas do Deak...';
 
-      const resposta = await fetch(apiBase + '/api/entregas');
+      const [resposta] = await Promise.all([
+        fetch(apiBase + '/api/entregas'),
+        carregarPontosDespacho(),
+      ]);
       const dados = await resposta.json();
       if (!resposta.ok || !dados.ok) throw new Error(dados.error || 'Falha ao consultar o Deak.');
 
@@ -107,7 +214,9 @@
       // Não deduplicar por pedido: um pedido pode gerar mais de uma entrega física/NF.
       entregas = brutas;
       window._dupRemovidasCount = 0;
+      aplicarPontoPadraoSedex();
       mostrarPreview();
+      renderizarPendenciasDespacho();
 
       const externas = entregas.filter((e) => e.requerDestinoOperacional).length;
       status.textContent = entregas.length + ' entregas carregadas diretamente do Deak' +
