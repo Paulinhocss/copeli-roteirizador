@@ -99,6 +99,11 @@
       '.ct-toolbar .fg{margin:0;flex:1}' +
       '.ct-toolbar .btn{width:auto;white-space:nowrap}' +
       '.ct-live{font-size:9px;padding:4px 7px;border:1px solid var(--border);border-radius:12px;color:var(--muted);background:#fff;margin-bottom:9px}' +
+      '.ct-diag{display:grid;grid-template-columns:1fr;gap:4px;padding:8px 9px}' +
+      '.ct-diag-item{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;font-size:9px;padding:4px 0;border-bottom:1px dashed var(--border)}' +
+      '.ct-diag-item:last-child{border-bottom:none}' +
+      '.ct-diag-item b{font-size:9px}' +
+      '.ct-diag-item span{color:var(--muted);text-align:right;max-width:58%}' +
       '.ct-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:9px}' +
       '.ct-kpi{background:#fff;border:1px solid var(--border);border-radius:9px;padding:8px 9px;min-width:0}' +
       '.ct-kpi small{display:block;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
@@ -169,6 +174,11 @@
       '</div>' +
       '<div id="ct-live" class="ct-live">Control Tower · aguardando dados</div>' +
       '<div id="ct-alerta"></div>' +
+      '<div class="ct-bloco">' +
+        '<div class="ct-bloco-titulo"><span>Ambiente de homologacao</span>' +
+          '<button class="btn" id="ct-testar-integracoes" style="width:auto;font-size:9px;padding:4px 7px">Testar integracoes</button></div>' +
+        '<div id="ct-homologacao" class="ct-diag"><div class="ct-vazio">Carregando diagnostico...</div></div>' +
+      '</div>' +
       '<div id="ct-kpis" class="ct-grid"></div>' +
       '<div class="ct-bloco">' +
         '<div class="ct-bloco-titulo"><span>Rotas oficiais</span><span id="ct-rotas-contagem"></span></div>' +
@@ -189,6 +199,7 @@
     document.getElementById('ct-data').value = hoje();
     document.getElementById('ct-data').onchange = carregarTudo;
     document.getElementById('ct-btn-atualizar').onclick = carregarTudo;
+    document.getElementById('ct-testar-integracoes').onclick = function () { carregarHomologacao(true); };
   }
 
   function kpi(titulo, valor, detalhe) {
@@ -197,6 +208,65 @@
       '<strong>' + esc(valor) + '</strong>' +
       '<span>' + esc(detalhe || '') + '</span>' +
       '</div>';
+  }
+
+
+  function statusDiagClasse(status) {
+    if (status === 'OK' || status === 'CONFIGURADO') return 'ok';
+    if (status === 'NAO_CONFIGURADO') return 'aviso';
+    return 'erro';
+  }
+
+  function renderHomologacao(h) {
+    var el = document.getElementById('ct-homologacao');
+    if (!el) return;
+
+    var itens = [];
+    ['postgres','deak','here','contele'].forEach(function (chave) {
+      var grupo = h && h[chave];
+      (grupo && grupo.itens || []).forEach(function (i) {
+        itens.push(i);
+      });
+    });
+
+    if (!itens.length) {
+      el.innerHTML = '<div class="ct-vazio">Diagnostico indisponivel.</div>';
+      return;
+    }
+
+    el.innerHTML = itens.map(function (i) {
+      return '<div class="ct-diag-item">' +
+        '<div><b>' + esc(i.nome) + '</b><br><span class="ct-badge ct-status-' +
+          statusDiagClasse(i.status) + '">' + esc(i.status) + '</span></div>' +
+        '<span>' + esc(i.detalhe || '') + '</span>' +
+        '</div>';
+    }).join('') +
+    '<div style="font-size:9px;margin-top:5px;color:' +
+      (h.pronto_para_homologar ? 'var(--green)' : 'var(--amber)') + '">' +
+      (h.pronto_para_homologar
+        ? 'Ambiente pronto para homologacao funcional.'
+        : 'Ainda existem bloqueios antes da homologacao funcional completa.') +
+    '</div>';
+  }
+
+  async function carregarHomologacao(profundo) {
+    var botao = document.getElementById('ct-testar-integracoes');
+    try {
+      if (botao && profundo) {
+        botao.disabled = true;
+        botao.textContent = 'Testando...';
+      }
+      var dados = await api('/api/control-tower/homologacao' + (profundo ? '?profundo=1' : ''));
+      renderHomologacao(dados.homologacao || {});
+    } catch (erro) {
+      var el = document.getElementById('ct-homologacao');
+      if (el) el.innerHTML = '<div class="ct-alerta">' + esc(erro.message) + '</div>';
+    } finally {
+      if (botao) {
+        botao.disabled = false;
+        botao.textContent = 'Testar integracoes';
+      }
+    }
   }
 
   function renderResumo(r) {
@@ -444,13 +514,15 @@
         api('/api/control-tower/resumo?data=' + encodeURIComponent(data)),
         api('/api/control-tower/rotas?data=' + encodeURIComponent(data)),
         api('/api/control-tower/alertas?status=ABERTO&limite=50'),
-        api('/api/control-tower/ocorrencias?status=ABERTA&limite=50')
+        api('/api/control-tower/ocorrencias?status=ABERTA&limite=50'),
+        api('/api/control-tower/homologacao')
       ]);
 
       renderResumo(resultados[0].resumo || {});
       renderRotas(resultados[1].rotas || []);
       renderAlertas(resultados[2].alertas || []);
       renderOcorrencias(resultados[3].ocorrencias || []);
+      renderHomologacao(resultados[4].homologacao || {});
 
       if (rotaAbertaId) {
         var existe = (resultados[1].rotas || []).some(function (r) {
@@ -539,7 +611,8 @@
     statusRota: statusRota,
     statusParada: statusParada,
     naoEntregue: naoEntregue,
-    statusExterno: statusExterno
+    statusExterno: statusExterno,
+    carregarHomologacao: carregarHomologacao
   };
 
   window.addEventListener('control-tower:planejamento-liberado', function () {
