@@ -592,7 +592,12 @@ async function atualizarStatusExternoParada(id, novo, op = {}) {
       ]
     );
 
-    return obterRota(parada.rota_id);
+    return {
+      parada_id: id,
+      rota_id: parada.rota_id,
+      status_externo: statusParada,
+      total_entregas: filhos.length,
+    };
   });
 }
 
