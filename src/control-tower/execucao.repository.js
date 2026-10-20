@@ -139,37 +139,44 @@ async function liberarPlanejamento(dados) {
   const { data, modo } = validar(dados);
   const origem = dados.origem || {};
   const usuario = texto(dados.liberado_por || dados.usuario);
+  const rotasPreparadas = dados.rotas.map((r) => ({
+    ...r,
+    paradasFisicas: agruparParadas(r.entregas),
+  }));
 
   return postgres.transacao(async (db) => {
-    const totalParadas = dados.rotas.reduce((s, r) => s + r.entregas.length, 0);
-    const valorTotal = dados.rotas.reduce((s, r) => s + r.entregas.reduce(
+    const totalEntregas = rotasPreparadas.reduce((s, r) => s + r.entregas.length, 0);
+    const totalParadas = rotasPreparadas.reduce((s, r) => s + r.paradasFisicas.length, 0);
+    const valorTotal = rotasPreparadas.reduce((s, r) => s + r.entregas.reduce(
       (x, e) => x + (numero(campo(e, 'valor', 'VALOR')) || 0), 0), 0);
 
     const p = (await db.query(
       'INSERT INTO ct_planejamento ' +
-      '(data_operacao,modo_roteirizacao,status,total_rotas,total_paradas,valor_total,' +
+      '(data_operacao,modo_roteirizacao,status,total_rotas,total_paradas,total_entregas,valor_total,' +
       'origem_endereco,origem_lat,origem_lng,snapshot,liberado_por,liberado_em) ' +
-      "VALUES ($1,$2,'LIBERADO',$3,$4,$5,$6,$7,$8,$9::jsonb,$10,NOW()) RETURNING *",
-      [data, modo, dados.rotas.length, totalParadas, valorTotal, texto(origem.endereco),
-       numero(origem.lat), numero(origem.lng), JSON.stringify(dados), usuario]
+      "VALUES ($1,$2,'LIBERADO',$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,NOW()) RETURNING *",
+      [data, modo, rotasPreparadas.length, totalParadas, totalEntregas, valorTotal,
+       texto(origem.endereco), numero(origem.lat), numero(origem.lng), JSON.stringify(dados), usuario]
     )).rows[0];
 
     const codigoPlanejamento = 'PL-' + data.replace(/-/g, '') + '-' + p.id;
     await db.query('UPDATE ct_planejamento SET codigo=$2 WHERE id=$1', [p.id, codigoPlanejamento]);
 
     const rotas = [];
-    for (const r of dados.rotas) {
+    for (const r of rotasPreparadas) {
       const valorRota = r.entregas.reduce((s, e) => s + (numero(campo(e, 'valor', 'VALOR')) || 0), 0);
       const veiculoId = numero(campo(r.veiculo || {}, 'id'));
+
       const rota = (await db.query(
         'INSERT INTO ct_rota ' +
         '(planejamento_id,data_operacao,modo_roteirizacao,status,motorista_id,veiculo_id,' +
-        'origem_endereco,origem_lat,origem_lng,total_entregas,valor_total,km_planejado,' +
+        'origem_endereco,origem_lat,origem_lng,total_entregas,total_paradas,valor_total,km_planejado,' +
         'duracao_planejada_segundos,planejada_em,liberada_em,criada_por,atualizada_em) ' +
-        "VALUES ($1,$2,$3,'LIBERADA',$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW(),NOW(),$13,NOW()) RETURNING *",
+        "VALUES ($1,$2,$3,'LIBERADA',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW(),NOW(),$14,NOW()) RETURNING *",
         [p.id, data, modo, numero(campo(r, 'motorista_id', 'motoristaId')), veiculoId,
-         texto(origem.endereco), numero(origem.lat), numero(origem.lng), r.entregas.length,
-         valorRota, numero(campo(r, 'distKm', 'km_planejado')),
+         texto(origem.endereco), numero(origem.lat), numero(origem.lng),
+         r.entregas.length, r.paradasFisicas.length, valorRota,
+         numero(campo(r, 'distKm', 'km_planejado')),
          numero(campo(r, 'duracaoSegundos', 'duracao_planejada_segundos')), usuario]
       )).rows[0];
 
@@ -177,11 +184,15 @@ async function liberarPlanejamento(dados) {
       await db.query('UPDATE ct_rota SET codigo=$2 WHERE id=$1', [rota.id, codigoRota]);
 
       const paradas = [];
-      for (let i = 0; i < r.entregas.length; i += 1) {
-        const e = r.entregas[i];
-        const mod = modalidade(e);
-        const d = destino(e, mod);
+      for (let i = 0; i < r.paradasFisicas.length; i += 1) {
+        const grupo = r.paradasFisicas[i];
+        const e = grupo.entregas[0];
+        const mod = grupo.modalidade;
+        const d = grupo.destino;
         const externo = mod === 'PROPRIA' ? 'NAO_APLICAVEL' : 'AGUARDANDO_DESPACHO';
+        const valorParada = grupo.entregas.reduce(
+          (s, item) => s + (numero(campo(item, 'valor', 'VALOR')) || 0), 0);
+        const consolidada = grupo.entregas.length > 1;
 
         const q = [
           'INSERT INTO ct_parada (rota_id,ordem_planejada,empresa,pedido,num_nf,cliente,nome_fantasia,',
@@ -189,33 +200,72 @@ async function liberarPlanejamento(dados) {
           'lat,lng,valor,eta_planejado,status,modalidade,tipo_destino_operacional,destino_operacional_nome,',
           'destino_operacional_endereco,destino_operacional_numero,destino_operacional_bairro,',
           'destino_operacional_cidade,destino_operacional_uf,destino_operacional_cep,',
-          'destino_operacional_lat,destino_operacional_lng,status_externo) ',
+          'destino_operacional_lat,destino_operacional_lng,status_externo,quantidade_entregas) ',
           "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,'PENDENTE',",
-          '$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34) RETURNING *'
+          '$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35) RETURNING *'
         ].join('');
 
         const parada = (await db.query(q, [
           rota.id, i + 1,
-          texto(campo(e, 'empresa', 'Empresa')), texto(campo(e, 'pedido', 'PEDIDO')),
-          texto(campo(e, 'num_nf', 'NumNF')), texto(campo(e, 'cliente', 'CLIENTE')),
-          texto(campo(e, 'nome_fantasia', 'NomeFantasia')),
+          texto(campo(e, 'empresa', 'Empresa')),
+          consolidada ? null : texto(campo(e, 'pedido', 'PEDIDO')),
+          consolidada ? null : texto(campo(e, 'num_nf', 'NumNF')),
+          mod === 'PROPRIA' ? texto(campo(e, 'cliente', 'CLIENTE')) : d.nome,
+          mod === 'PROPRIA' ? texto(campo(e, 'nome_fantasia', 'NomeFantasia')) : d.nome,
           texto(campo(e, 'dataEntrega', 'DataEntrega', 'data_prometida')),
-          texto(campo(e, 'prioridade', 'Prioridade')), texto(campo(e, 'vendedor', 'VENDEDOR')),
-          texto(campo(e, 'obs', 'observacao', 'Observacao')), texto(campo(e, 'tipo_logradouro', 'TipoEnt')),
-          texto(campo(e, 'endereco', 'ENDENT')), texto(campo(e, 'numero', 'NumEnt')),
-          texto(campo(e, 'bairro', 'BAIRRO')), texto(campo(e, 'cidade', 'CIDADE')),
-          texto(campo(e, 'uf', 'UF')) || 'SP', texto(campo(e, 'cep', 'CEP')),
-          numero(campo(e, 'lat')), numero(campo(e, 'lng')), numero(campo(e, 'valor', 'VALOR')) || 0,
-          texto(campo(e, 'chegadaPrevista', 'eta_planejado')), mod, d.tipo, d.nome, d.endereco, d.numero,
-          d.bairro, d.cidade, d.uf, d.cep, d.lat, d.lng, externo
+          texto(campo(e, 'prioridade', 'Prioridade')),
+          consolidada ? null : texto(campo(e, 'vendedor', 'VENDEDOR')),
+          consolidada ? ('Parada consolidada com ' + grupo.entregas.length + ' entregas.') :
+            texto(campo(e, 'obs', 'observacao', 'Observacao')),
+          mod === 'PROPRIA' ? texto(campo(e, 'tipo_logradouro', 'TipoEnt')) : null,
+          d.endereco, d.numero, d.bairro, d.cidade, d.uf, d.cep, d.lat, d.lng,
+          valorParada, texto(campo(e, 'chegadaPrevista', 'eta_planejado')),
+          mod, d.tipo, d.nome, d.endereco, d.numero, d.bairro, d.cidade, d.uf, d.cep, d.lat, d.lng,
+          externo, grupo.entregas.length
         ])).rows[0];
-        paradas.push(parada);
+
+        const entregasParada = [];
+        for (const item of grupo.entregas) {
+          const childExterno = mod === 'PROPRIA' ? 'NAO_APLICAVEL' : 'AGUARDANDO_DESPACHO';
+          const child = (await db.query(
+            'INSERT INTO ct_parada_entrega ' +
+            '(parada_id,empresa,pedido,num_nf,cliente,nome_fantasia,data_prometida,prioridade,vendedor,observacao,' +
+            'tipo_logradouro,endereco_final,numero_final,bairro_final,cidade_final,uf_final,cep_final,lat_final,lng_final,' +
+            'valor,modalidade,status_externo) ' +
+            'VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *',
+            [
+              parada.id,
+              texto(campo(item, 'empresa', 'Empresa')), texto(campo(item, 'pedido', 'PEDIDO')),
+              texto(campo(item, 'num_nf', 'NumNF')), texto(campo(item, 'cliente', 'CLIENTE')),
+              texto(campo(item, 'nome_fantasia', 'NomeFantasia')),
+              texto(campo(item, 'dataEntrega', 'DataEntrega', 'data_prometida')),
+              texto(campo(item, 'prioridade', 'Prioridade')), texto(campo(item, 'vendedor', 'VENDEDOR')),
+              texto(campo(item, 'obs', 'observacao', 'Observacao')),
+              texto(campo(item, 'tipo_logradouro', 'TipoEnt')), texto(campo(item, 'endereco', 'ENDENT')),
+              texto(campo(item, 'numero', 'NumEnt')), texto(campo(item, 'bairro', 'BAIRRO')),
+              texto(campo(item, 'cidade', 'CIDADE')), texto(campo(item, 'uf', 'UF')) || 'SP',
+              texto(campo(item, 'cep', 'CEP')),
+              numero(campo(item, 'latCliente', 'lat_final', 'lat')),
+              numero(campo(item, 'lngCliente', 'lng_final', 'lng')),
+              numero(campo(item, 'valor', 'VALOR')) || 0, mod, childExterno
+            ]
+          )).rows[0];
+          entregasParada.push(child);
+        }
+
+        paradas.push(Object.assign({}, parada, { entregas: entregasParada }));
       }
 
       await db.query(
         "INSERT INTO ct_evento (rota_id,tipo,fonte,usuario,dados) VALUES ($1,'ROTA_LIBERADA','CONTROL_TOWER',$2,$3::jsonb)",
-        [rota.id, usuario, JSON.stringify({ planejamento_id: p.id, planejamento_codigo: codigoPlanejamento })]
+        [rota.id, usuario, JSON.stringify({
+          planejamento_id: p.id,
+          planejamento_codigo: codigoPlanejamento,
+          total_entregas: r.entregas.length,
+          total_paradas: r.paradasFisicas.length
+        })]
       );
+
       rotas.push(Object.assign({}, rota, { codigo: codigoRota, paradas }));
     }
 
