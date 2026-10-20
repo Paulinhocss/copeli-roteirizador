@@ -188,6 +188,21 @@ Autoridade para:
 - routing;
 - Tour Planning.
 
+### Contele Fleet
+
+Fonte de execução física e telemetria:
+
+- posição atual dos veículos;
+- motorista vinculado;
+- ignição e velocidade;
+- odômetro;
+- trajetos realizados;
+- km realizado;
+- tempo realizado;
+- base para planejado x realizado.
+
+O Control Tower não deve persistir indiscriminadamente cada ponto de GPS. A posição atual fica em cache operacional; o histórico detalhado é consultado na Contele por período e os indicadores consolidados são armazenados no Control Tower.
+
 ## Roadmap
 
 ### Fase 1 — Fundação Control Tower
@@ -226,7 +241,9 @@ Autoridade para:
 
 ### Fase 5 — Telemetria e custo
 
-- GPS / rastreador / odômetro;
+Com a integração Contele Fleet, parte desta fase pode ser antecipada:
+
+- GPS / rastreador / odômetro via Contele;
 - km real;
 - tempo real;
 - custo por veículo;
