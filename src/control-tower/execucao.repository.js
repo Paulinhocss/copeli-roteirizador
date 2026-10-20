@@ -374,6 +374,22 @@ async function atualizarStatusRota(id, novo, op = {}) {
       erro.code = 'TRANSICAO_INVALIDA';
       throw erro;
     }
+
+    if (status === 'FINALIZADA') {
+      const pendencias = (await db.query(
+        "SELECT COUNT(*)::int AS quantidade FROM ct_parada WHERE rota_id=$1 " +
+        "AND status IN ('PENDENTE','EM_DESLOCAMENTO','NO_CLIENTE')",
+        [id]
+      )).rows[0];
+      if (pendencias && Number(pendencias.quantidade) > 0) {
+        const erro = new Error(
+          'A rota possui ' + pendencias.quantidade + ' parada(s) ainda pendente(s).'
+        );
+        erro.code = 'ROTA_PENDENTE';
+        throw erro;
+      }
+    }
+
     const r = (await db.query(
       "UPDATE ct_rota SET status=$2,liberada_em=CASE WHEN $2='LIBERADA' THEN COALESCE(liberada_em,NOW()) ELSE liberada_em END," +
       "iniciada_em=CASE WHEN $2='EM_ROTA' THEN COALESCE(iniciada_em,NOW()) ELSE iniciada_em END," +
@@ -570,13 +586,11 @@ async function atualizarStatusExternoParada(id, novo, op = {}) {
 
     await db.query(
       "UPDATE ct_parada_entrega SET status_externo=$2," +
-      "codigo_rastreio=CASE WHEN $3::varchar IS NOT NULL AND quantidade_entregas=1 THEN $3 ELSE codigo_rastreio END," +
+      "codigo_rastreio=CASE WHEN $4::boolean AND $3::varchar IS NOT NULL THEN $3 ELSE codigo_rastreio END," +
       "despachada_em=CASE WHEN $2 IN ('DESPACHADO','EM_TRANSITO','ENTREGUE') THEN COALESCE(despachada_em,NOW()) ELSE despachada_em END," +
       "entregue_final_em=CASE WHEN $2='ENTREGUE' THEN COALESCE(entregue_final_em,NOW()) ELSE entregue_final_em END," +
-      'atualizado_em=NOW() ' +
-      'FROM (SELECT COUNT(*)::int AS quantidade_entregas FROM ct_parada_entrega WHERE parada_id=$1) q ' +
-      'WHERE parada_id=$1',
-      [id, status, texto(op.codigo_rastreio)]
+      'atualizado_em=NOW() WHERE parada_id=$1',
+      [id, status, texto(op.codigo_rastreio), filhos.length === 1]
     );
 
     const statusParada = await recalcularStatusExternoParada(db, id);
