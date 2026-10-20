@@ -54,3 +54,23 @@ CREATE INDEX IF NOT EXISTS ix_ct_parada_entrega_pedido
 
 CREATE INDEX IF NOT EXISTS ix_ct_parada_entrega_externo
   ON ct_parada_entrega (modalidade, status_externo);
+
+
+-- Backfill das paradas existentes criadas antes deste modelo.
+INSERT INTO ct_parada_entrega (
+  parada_id, empresa, pedido, num_nf, cliente, nome_fantasia,
+  data_prometida, prioridade, vendedor, observacao, tipo_logradouro,
+  endereco_final, numero_final, bairro_final, cidade_final, uf_final,
+  cep_final, lat_final, lng_final, valor, modalidade, status_externo,
+  codigo_rastreio, despachada_em, entregue_final_em
+)
+SELECT
+  p.id, p.empresa, p.pedido, p.num_nf, p.cliente, p.nome_fantasia,
+  p.data_prometida, p.prioridade, p.vendedor, p.observacao, p.tipo_logradouro,
+  p.endereco, p.numero, p.bairro, p.cidade, p.uf,
+  p.cep, p.lat, p.lng, p.valor, p.modalidade, p.status_externo,
+  p.codigo_rastreio, p.despachada_em, p.entregue_final_em
+FROM ct_parada p
+WHERE NOT EXISTS (
+  SELECT 1 FROM ct_parada_entrega pe WHERE pe.parada_id = p.id
+);
