@@ -17,6 +17,10 @@ const ambiente = {
     url: process.env.DATABASE_URL || process.env.ROTEIRIZADOR_DATABASE_URL || '',
     ssl: lerBooleano(process.env.PG_SSL, false),
   },
+  contele: {
+    apiKey: process.env.CONTELE_API_KEY || '',
+    timeoutMs: lerInteiro(process.env.CONTELE_TIMEOUT_MS, 20000),
+  },
   deak: {
     server: process.env.DEAK_DB_SERVER || process.env.DB_SERVER || '',
     port: lerInteiro(process.env.DEAK_DB_PORT || process.env.DB_PORT, 1433),
