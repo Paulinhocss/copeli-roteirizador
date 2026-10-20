@@ -66,11 +66,35 @@ GET  /api/integracoes/contele/motoristas/:driverId/rotas
 POST /api/integracoes/contele/rotas-planejadas
 ```
 
-## Estratégia de sincronização
+## Estratégia de sincronização em tempo real
 
-A posição atual pode ser consultada com alta frequência, mas o PostgreSQL guarda apenas o último estado por veículo. Não devemos persistir indiscriminadamente um ponto a cada poucos segundos.
+"Guardar apenas a última posição" não significa consultar a Contele em intervalos longos.
 
-Para histórico, o Control Tower consulta os trackings da Contele no intervalo da rota e consolida os indicadores relevantes.
+Para veículos com **rastreador Contele**, a própria plataforma atualiza a localização aproximadamente a cada 15 segundos. Durante uma rota ativa, o Control Tower deve consultar a API de últimos pontos em ciclo curto e atualizar somente o estado mais recente de cada veículo.
+
+Cadência inicial proposta:
+
+- rota ativa: consultar Contele a cada **30 segundos**;
+- veículo com ignição ligada fora de rota: a cada **60 segundos**;
+- veículo parado / sem rota: a cada **3 a 5 minutos**;
+- frontend do Control Tower: receber atualização do nosso backend por **SSE/WebSocket**, sem cada navegador consultar a Contele diretamente.
+
+Assim, dez usuários olhando o mapa não geram dez vezes mais chamadas à API.
+
+O registro `ct_contele_posicao_atual` funciona como estado operacional mais recente. Eventos relevantes devem ser persistidos separadamente, por exemplo:
+
+- ignição ligada/desligada;
+- saída do CD;
+- entrada e saída de geofence de cliente;
+- chegada à parada;
+- desvio relevante da rota;
+- parada prolongada;
+- veículo sem comunicação;
+- retorno ao CD.
+
+Para reconstrução detalhada de uma viagem, o Control Tower consulta os trackings históricos da Contele no intervalo da rota e consolida km, tempo e trajetória.
+
+> Se algum veículo utilizar apenas o modo Contele System/app do motorista, a frequência de origem pode ser muito menor (aproximadamente 5 minutos). O Control Tower deve exibir a idade da última posição e nunca aparentar uma precisão maior que a fonte.
 
 ## Próxima etapa
 
