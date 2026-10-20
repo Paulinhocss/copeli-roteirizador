@@ -1,6 +1,7 @@
 const configuracoes = require('./configuracoes.repository');
 const { encontrarFaixa } = require('./faixas-cep');
 const { planejarTours } = require('./here.service');
+const despachos = require('./despachos.repository');
 
 function validarEntregas(entregas) {
   if (!Array.isArray(entregas) || !entregas.length) {
@@ -186,7 +187,10 @@ async function planejarOtimizado(entregas, contexto, opcoes) {
 }
 
 async function planejar(entregasBrutas, opcoes = {}) {
-  const entregas = validarEntregas(entregasBrutas);
+  const entregasComDestinos = await despachos.aplicarDestinosOperacionais(
+    Array.isArray(entregasBrutas) ? entregasBrutas : []
+  );
+  const entregas = validarEntregas(entregasComDestinos);
 
   const [configuracao, faixas, motoristas, veiculos] = await Promise.all([
     configuracoes.obterConfiguracao(),
