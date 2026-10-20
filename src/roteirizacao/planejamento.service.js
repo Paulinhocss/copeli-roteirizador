@@ -9,12 +9,51 @@ function validarEntregas(entregas) {
     throw erro;
   }
 
-  return entregas.map((entrega, indice) => ({
-    ...entrega,
-    _indicePlanejamento: indice,
-    lat: Number(entrega.lat),
-    lng: Number(entrega.lng),
-  }));
+  return entregas.map((entrega, indice) => {
+    const modalidade = String(entrega.modalidade || '').toUpperCase();
+    const requerDestino = Boolean(
+      entrega.requerDestinoOperacional ||
+      entrega.requer_destino_operacional ||
+      modalidade === 'TRANSPORTADORA' ||
+      modalidade === 'SEDEX'
+    );
+
+    if (requerDestino) {
+      const destino = entrega.destino_operacional || entrega.destinoOperacional;
+      const latDestino = destino && Number(destino.lat);
+      const lngDestino = destino && Number(destino.lng);
+
+      if (!Number.isFinite(latDestino) || !Number.isFinite(lngDestino)) {
+        const erro = new Error(
+          modalidade === 'SEDEX'
+            ? 'Entrega SEDEX sem ponto dos Correios definido.'
+            : 'Entrega de transportadora sem ponto de despacho definido.'
+        );
+        erro.code = 'DESTINO_DESPACHO_OBRIGATORIO';
+        erro.detail = {
+          pedido: entrega.pedido || entrega.PEDIDO || null,
+          modalidade: modalidade || null,
+        };
+        throw erro;
+      }
+
+      return {
+        ...entrega,
+        _indicePlanejamento: indice,
+        latCliente: Number(entrega.lat),
+        lngCliente: Number(entrega.lng),
+        lat: latDestino,
+        lng: lngDestino,
+      };
+    }
+
+    return {
+      ...entrega,
+      _indicePlanejamento: indice,
+      lat: Number(entrega.lat),
+      lng: Number(entrega.lng),
+    };
+  });
 }
 
 function criarVeiculoVirtual(motorista, quantidade) {
