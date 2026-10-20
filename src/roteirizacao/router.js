@@ -1,6 +1,7 @@
 const express = require('express');
 const configuracoes = require('./configuracoes.repository');
 const planejamento = require('./planejamento.service');
+const despachos = require('./despachos.repository');
 
 const router = express.Router();
 
@@ -15,6 +16,7 @@ function responderErro(res, erro) {
     'SEM_VEICULOS_ATIVOS',
     'TOUR_PLANNING_LIMITE_SINCRONO',
     'DESTINO_DESPACHO_OBRIGATORIO',
+    'PONTO_DESPACHO_INVALIDO',
   ]);
 
   const status = erro.code === 'POSTGRES_NAO_CONFIGURADO'
@@ -135,6 +137,38 @@ router.patch('/faixas-cep/:id', async (req, res) => {
     );
     if (!faixa) return res.status(404).json({ ok: false, error: 'Faixa de CEP nao encontrada.' });
     res.json({ ok: true, faixa });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+
+router.get('/pontos-despacho', async (req, res) => {
+  try {
+    const pontos = await despachos.listar({
+      somenteAtivos: req.query.ativos === '1' || req.query.ativos === 'true',
+      tipo: req.query.tipo,
+    });
+    res.json({ ok: true, pontos });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+router.post('/pontos-despacho', async (req, res) => {
+  try {
+    const ponto = await despachos.criar(req.body || {});
+    res.status(201).json({ ok: true, ponto });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+router.patch('/pontos-despacho/:id', async (req, res) => {
+  try {
+    const ponto = await despachos.atualizar(Number(req.params.id), req.body || {});
+    if (!ponto) return res.status(404).json({ ok: false, error: 'Ponto de despacho nao encontrado.' });
+    res.json({ ok: true, ponto });
   } catch (erro) {
     responderErro(res, erro);
   }
