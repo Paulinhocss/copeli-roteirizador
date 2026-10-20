@@ -182,6 +182,7 @@
       return {
         motorista: nome,
         motoristaReal: rota.motorista || null,
+        motorista_id: rota.motorista_id || null,
         veiculo: rota.veiculo || null,
         pontos,
         rotaOtimizada: pontos,
@@ -312,6 +313,105 @@
     }
   };
 
+
+  function dataOperacaoHoje() {
+    try {
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date());
+    } catch {
+      return new Date().toISOString().slice(0, 10);
+    }
+  }
+
+  function inserirBotaoLiberar() {
+    const otimizar = document.getElementById('btn-otimizar');
+    if (!otimizar || document.getElementById('btn-liberar-planejamento')) return;
+
+    const botao = document.createElement('button');
+    botao.id = 'btn-liberar-planejamento';
+    botao.className = 'btn btn-primary';
+    botao.style.marginLeft = '6px';
+    botao.textContent = 'Liberar planejamento';
+    botao.onclick = liberarPlanejamentoControlTower;
+    otimizar.insertAdjacentElement('afterend', botao);
+  }
+
+  async function liberarPlanejamentoControlTower() {
+    const rotasTela = Object.values(rotasJaOtimizadas || {});
+    if (!rotasTela.length) {
+      alert('Otimize ao menos uma rota antes de liberar o planejamento.');
+      return;
+    }
+
+    const cfg = window.__roteirizacaoConfiguracao || {};
+    const botao = document.getElementById('btn-liberar-planejamento');
+
+    const payload = {
+      data_operacao: dataOperacaoHoje(),
+      modo: modoAtual || cfg.modo || 'MANUAL',
+      origem: {
+        endereco: cfg.deposito_endereco || null,
+        lat: Number(cfg.deposito_lat),
+        lng: Number(cfg.deposito_lng),
+      },
+      rotas: rotasTela.map((rota) => ({
+        motorista_id: rota.motorista_id || null,
+        motorista: rota.motoristaReal || rota.motorista || null,
+        veiculo: rota.veiculo || null,
+        distKm: rota.distKm || null,
+        duracaoSegundos: rota.duracaoSegundos || null,
+        entregas: rota.rotaOtimizada || rota.pontos || [],
+      })),
+    };
+
+    try {
+      if (botao) {
+        botao.disabled = true;
+        botao.textContent = 'Liberando...';
+      }
+
+      const resposta = await fetch(apiBase + '/api/control-tower/planejamentos/liberar', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const dados = await resposta.json();
+
+      if (!resposta.ok || !dados.ok) {
+        const erro = new Error(dados.error || 'Falha ao liberar planejamento.');
+        erro.code = dados.code;
+        throw erro;
+      }
+
+      const codigo = dados.planejamento && dados.planejamento.codigo;
+      alert(
+        'Planejamento liberado com sucesso.' +
+        (codigo ? '\nCódigo: ' + codigo : '') +
+        '\nRotas oficiais: ' + ((dados.rotas || []).length)
+      );
+
+      window.dispatchEvent(new CustomEvent('control-tower:planejamento-liberado', {
+        detail: dados,
+      }));
+    } catch (erro) {
+      console.error('Liberacao do planejamento falhou:', erro);
+      let mensagem = erro.message;
+      if (erro.code === 'DESTINO_DESPACHO_OBRIGATORIO') {
+        mensagem += '\nDefina o ponto físico de despacho antes de liberar Transportadora/SEDEX.';
+      }
+      alert(mensagem);
+    } finally {
+      if (botao) {
+        botao.disabled = false;
+        botao.textContent = 'Liberar planejamento';
+      }
+    }
+  }
+
   window.addEventListener('roteirizador:configuracao', (evento) => {
     atualizarBanner(evento.detail);
   });
@@ -319,6 +419,7 @@
   window.addEventListener('load', () => {
     inserirIntegracaoDeak();
     inserirBannerModo();
+    inserirBotaoLiberar();
     carregarConfiguracao();
   });
 })();
