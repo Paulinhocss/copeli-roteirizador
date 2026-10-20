@@ -10,6 +10,7 @@
     motoristas: [],
     veiculos: [],
     faixas: [],
+    pontosDespacho: [],
   };
 
   async function requisitar(caminho, opcoes = {}) {
@@ -172,6 +173,42 @@
         <button class="btn btn-primary" onclick="adminAdicionarFaixa()">Adicionar faixa</button>
         <div id="admin-lista-faixas"></div>
       </div>
+
+      <div class="admin-card">
+        <div class="admin-title">Pontos de despacho · Transportadoras / Correios</div>
+        <div class="admin-grid">
+          <div class="fg"><label>Tipo</label>
+            <select id="admin-despacho-tipo">
+              <option value="CORREIOS">Correios / SEDEX</option>
+              <option value="TRANSPORTADORA">Transportadora</option>
+            </select>
+          </div>
+          <div class="fg"><label>Código no Deak (opcional)</label><input id="admin-despacho-codigo" placeholder="Ex.: 608"/></div>
+        </div>
+        <div class="fg"><label>Nome</label><input id="admin-despacho-nome" placeholder="Ex.: Correios Vila Yara / Transportadora X"/></div>
+        <div class="admin-grid">
+          <div class="fg"><label>Endereço</label><input id="admin-despacho-endereco"/></div>
+          <div class="fg"><label>Número</label><input id="admin-despacho-numero"/></div>
+        </div>
+        <div class="admin-grid">
+          <div class="fg"><label>Bairro</label><input id="admin-despacho-bairro"/></div>
+          <div class="fg"><label>Cidade</label><input id="admin-despacho-cidade" value="OSASCO"/></div>
+        </div>
+        <div class="admin-grid">
+          <div class="fg"><label>UF</label><input id="admin-despacho-uf" value="SP" maxlength="2"/></div>
+          <div class="fg"><label>CEP</label><input id="admin-despacho-cep"/></div>
+        </div>
+        <div class="admin-grid">
+          <div class="fg"><label>Latitude</label><input id="admin-despacho-lat" type="number" step="0.0000001"/></div>
+          <div class="fg"><label>Longitude</label><input id="admin-despacho-lng" type="number" step="0.0000001"/></div>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:10px;margin:6px 0 9px">
+          <input id="admin-despacho-padrao" type="checkbox" style="width:auto"/>
+          Ponto padrão desta modalidade
+        </label>
+        <button class="btn btn-primary" onclick="adminAdicionarPontoDespacho()">Adicionar ponto de despacho</button>
+        <div id="admin-lista-pontos-despacho"></div>
+      </div>
     `;
 
     sidebar.appendChild(painel);
@@ -242,7 +279,29 @@
           ${f.ativo ? 'Desativar' : 'Ativar'}
         </button>
       </div>
+    document.getElementById('admin-lista-faixas').innerHTML = estado.faixas.map((f) => `
+      <div class="admin-row">
+        <div class="admin-row-main">
+          <strong>${formatarCep(f.cep_inicial)} a ${formatarCep(f.cep_final)}</strong>
+          <small>${escapeHtml(f.motorista_nome)} · ${f.ativo ? 'ativa' : 'inativa'}</small>
+        </div>
+        <button class="btn admin-mini" onclick="adminAlternarFaixa(${f.id},${!f.ativo})">
+          ${f.ativo ? 'Desativar' : 'Ativar'}
+        </button>
+      </div>
     `).join('') || '<small style="color:var(--muted)">Nenhuma faixa cadastrada.</small>';
+
+    document.getElementById('admin-lista-pontos-despacho').innerHTML = estado.pontosDespacho.map((p) => `
+      <div class="admin-row">
+        <div class="admin-row-main">
+          <strong>${escapeHtml(p.nome)}${p.padrao ? ' · PADRÃO' : ''}</strong>
+          <small>${escapeHtml(p.tipo)}${p.codigo_externo ? ' · Deak ' + escapeHtml(p.codigo_externo) : ''} · ${escapeHtml(p.cidade || '')} · ${p.ativo ? 'ativo' : 'inativo'}</small>
+        </div>
+        <button class="btn admin-mini" onclick="adminAlternarPontoDespacho(${p.id},${!p.ativo})">
+          ${p.ativo ? 'Desativar' : 'Ativar'}
+        </button>
+      </div>
+    `).join('') || '<small style="color:var(--muted)">Nenhum ponto de despacho cadastrado.</small>';
 
     sincronizarMotoristasLegados();
     status('Modo ativo: ' + (cfg.modo === 'CEP' ? 'Faixas de CEP' : 'Otimização por frota'));
@@ -252,17 +311,19 @@
   async function carregarTudo() {
     try {
       status('Carregando configurações...');
-      const [cfg, motoristas, veiculos, faixas] = await Promise.all([
+      const [cfg, motoristas, veiculos, faixas, pontosDespacho] = await Promise.all([
         requisitar('/api/roteirizacao/configuracoes'),
         requisitar('/api/roteirizacao/motoristas'),
         requisitar('/api/roteirizacao/veiculos'),
         requisitar('/api/roteirizacao/faixas-cep'),
+        requisitar('/api/roteirizacao/pontos-despacho'),
       ]);
 
       estado.configuracao = cfg.configuracao;
       estado.motoristas = motoristas.motoristas || [];
       estado.veiculos = veiculos.veiculos || [];
       estado.faixas = faixas.faixas || [];
+      estado.pontosDespacho = pontosDespacho.pontos || [];
       renderizar();
     } catch (erro) {
       status(erro.message, true);
@@ -379,6 +440,78 @@
   window.adminAlternarFaixa = async function (id, ativo) {
     try {
       await requisitar('/api/roteirizacao/faixas-cep/' + id, {
+        method: 'PATCH',
+        body: JSON.stringify({ ativo }),
+      });
+      await carregarTudo();
+    } catch (erro) {
+      status(erro.message, true);
+    }
+  };
+
+
+  async function geocodificarDespacho(corpo) {
+    if (Number.isFinite(corpo.lat) && Number.isFinite(corpo.lng)) return corpo;
+
+    const params = new URLSearchParams({
+      q: corpo.endereco || corpo.cep || corpo.nome,
+      numero: corpo.numero || '',
+      bairro: corpo.bairro || '',
+      cidade: corpo.cidade || 'OSASCO',
+      uf: corpo.uf || 'SP',
+      cep: corpo.cep || '',
+    });
+    const dados = await requisitar('/geocode?' + params.toString(), { headers: {} });
+    if (!dados.found) throw new Error('Não foi possível geocodificar o ponto de despacho.');
+    corpo.lat = Number(dados.lat);
+    corpo.lng = Number(dados.lng);
+    return corpo;
+  }
+
+  window.adminAdicionarPontoDespacho = async function () {
+    try {
+      const corpo = {
+        tipo: document.getElementById('admin-despacho-tipo').value,
+        codigo_externo: document.getElementById('admin-despacho-codigo').value || null,
+        nome: document.getElementById('admin-despacho-nome').value,
+        endereco: document.getElementById('admin-despacho-endereco').value,
+        numero: document.getElementById('admin-despacho-numero').value,
+        bairro: document.getElementById('admin-despacho-bairro').value,
+        cidade: document.getElementById('admin-despacho-cidade').value,
+        uf: document.getElementById('admin-despacho-uf').value || 'SP',
+        cep: document.getElementById('admin-despacho-cep').value,
+        lat: Number(document.getElementById('admin-despacho-lat').value),
+        lng: Number(document.getElementById('admin-despacho-lng').value),
+        padrao: document.getElementById('admin-despacho-padrao').checked,
+      };
+
+      if (!document.getElementById('admin-despacho-lat').value ||
+          !document.getElementById('admin-despacho-lng').value) {
+        corpo.lat = NaN;
+        corpo.lng = NaN;
+        await geocodificarDespacho(corpo);
+      }
+
+      await requisitar('/api/roteirizacao/pontos-despacho', {
+        method: 'POST',
+        body: JSON.stringify(corpo),
+      });
+
+      ['admin-despacho-codigo','admin-despacho-nome','admin-despacho-endereco',
+       'admin-despacho-numero','admin-despacho-bairro','admin-despacho-cep',
+       'admin-despacho-lat','admin-despacho-lng'].forEach((id) => {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('admin-despacho-padrao').checked = false;
+      await carregarTudo();
+    } catch (erro) {
+      status(erro.message, true);
+    }
+  };
+
+  window.adminAlternarPontoDespacho = async function (id, ativo) {
+    try {
+      await requisitar('/api/roteirizacao/pontos-despacho/' + id, {
         method: 'PATCH',
         body: JSON.stringify({ ativo }),
       });
