@@ -7,6 +7,7 @@ const { ambiente } = require('./src/config/ambiente');
 const postgres = require('./src/infrastructure/postgres');
 const deak = require('./src/infrastructure/deak');
 const configuracoes = require('./src/roteirizacao/configuracoes.repository');
+const despachosRepository = require('./src/roteirizacao/despachos.repository');
 const { geocodificar, calcularRota } = require('./src/roteirizacao/here.service');
 const { listarEntregas } = require('./src/entregas/repository');
 const entregasRouter = require('./src/entregas/router');
@@ -135,6 +136,7 @@ async function iniciar() {
   if (postgres.configurado()) {
     try {
       await configuracoes.garantirEstrutura();
+      await despachosRepository.garantirEstrutura();
       await controlTowerRepository.garantirEstrutura();
       await controlTowerExecucao.garantirEstrutura();
       await conteleRepository.garantirEstrutura();
