@@ -2,6 +2,7 @@ const postgres = require('../infrastructure/postgres');
 const deak = require('../infrastructure/deak');
 const { ambiente } = require('../config/ambiente');
 const contele = require('../integracoes/contele/service');
+const { geocodificar, calcularRota, planejarTours } = require('../roteirizacao/here.service');
 
 const TABELAS_POSTGRES = [
   'roteirizacao_configuracao',
@@ -171,20 +172,159 @@ async function verificarContele(profundo) {
   }
 }
 
-function verificarHere() {
-  const ok = Boolean(ambiente.hereApiKey);
-  return {
-    ok,
-    itens: [
-      item(
-        'HERE',
-        ok ? 'CONFIGURADO' : 'NAO_CONFIGURADO',
-        ok
-          ? 'HERE_API_KEY presente. Geocodificacao, Routing e Tour Planning podem ser homologados.'
-          : 'HERE_API_KEY ausente.'
-      ),
-    ],
+async function verificarHere(profundo) {
+  const configurado = Boolean(ambiente.hereApiKey);
+  if (!configurado) {
+    return {
+      ok: false,
+      itens: [
+        item('HERE', 'NAO_CONFIGURADO', 'HERE_API_KEY ausente.'),
+      ],
+      testes: {
+        geocoding: false,
+        routing: false,
+        tour_planning: false,
+      },
+    };
+  }
+
+  if (!profundo) {
+    return {
+      ok: true,
+      itens: [
+        item(
+          'HERE',
+          'CONFIGURADO',
+          'HERE_API_KEY presente; use profundo=1 para testar Geocoding, Routing e Tour Planning.'
+        ),
+      ],
+      testes: null,
+    };
+  }
+
+  const testes = {
+    geocoding: false,
+    routing: false,
+    tour_planning: false,
   };
+  const detalhes = {};
+
+  try {
+    const geo = await geocodificar({
+      q: 'Av. Yara',
+      numero: '75',
+      bairro: 'Vila Yara',
+      cidade: 'Osasco',
+      uf: 'SP',
+      cep: '06028-110',
+    });
+
+    testes.geocoding = Boolean(geo && geo.found);
+    detalhes.geocoding = testes.geocoding
+      ? { lat: Number(geo.lat), lng: Number(geo.lng), display: geo.display || null }
+      : { erro: 'HERE nao retornou coordenadas para o endereco de homologacao.' };
+
+    if (!testes.geocoding) {
+      const erro = new Error('HERE Geocoding nao retornou resultado valido.');
+      erro.code = 'HERE_GEOCODING_HOMOLOGACAO';
+      throw erro;
+    }
+
+    const origem = { lat: Number(geo.lat), lng: Number(geo.lng) };
+    const destino = {
+      lat: origem.lat + 0.012,
+      lng: origem.lng + 0.012,
+    };
+
+    const rota = await calcularRota([origem, destino]);
+    testes.routing = Boolean(
+      rota &&
+      rota.ok &&
+      Number.isFinite(Number(rota.distKm)) &&
+      Number(rota.distKm) > 0
+    );
+    detalhes.routing = testes.routing
+      ? {
+          dist_km: Number(rota.distKm),
+          duracao_segundos: Number(rota.duracaoSegundos || 0),
+        }
+      : { erro: 'HERE Routing nao retornou rota valida.' };
+
+    if (!testes.routing) {
+      const erro = new Error('HERE Routing nao retornou rota valida.');
+      erro.code = 'HERE_ROUTING_HOMOLOGACAO';
+      throw erro;
+    }
+
+    const tour = await planejarTours({
+      entregas: [{
+        pedido: 'HML-HERE-1',
+        cliente: 'Homologacao HERE',
+        lat: destino.lat,
+        lng: destino.lng,
+      }],
+      veiculos: [{
+        id: -1,
+        nome: 'Veiculo Homologacao',
+        perfil: 'car',
+        max_paradas: 5,
+        motorista_id: -1,
+        motorista_nome: 'Homologacao',
+      }],
+      configuracao: {
+        deposito_lat: origem.lat,
+        deposito_lng: origem.lng,
+        inicio_jornada: '07:00',
+        fim_jornada: '18:00',
+        tempo_parada_segundos: 60,
+      },
+    });
+
+    testes.tour_planning = Boolean(
+      tour &&
+      tour.engine === 'HERE_TOUR_PLANNING_V3' &&
+      Array.isArray(tour.rotas) &&
+      tour.rotas.length > 0
+    );
+    detalhes.tour_planning = testes.tour_planning
+      ? {
+          rotas: tour.rotas.length,
+          nao_atribuidas: Array.isArray(tour.naoAtribuidas) ? tour.naoAtribuidas.length : 0,
+        }
+      : { erro: 'HERE Tour Planning nao retornou rota de homologacao.' };
+
+    if (!testes.tour_planning) {
+      const erro = new Error('HERE Tour Planning nao retornou rota valida.');
+      erro.code = 'HERE_TOUR_PLANNING_HOMOLOGACAO';
+      throw erro;
+    }
+
+    return {
+      ok: true,
+      itens: [
+        item(
+          'HERE',
+          'OK',
+          'Geocoding, Routing v8 e Tour Planning v3 responderam ao teste profundo.'
+        ),
+      ],
+      testes,
+      detalhes,
+    };
+  } catch (erro) {
+    return {
+      ok: false,
+      itens: [
+        item('HERE', 'ERRO', erro.message),
+      ],
+      testes,
+      detalhes,
+      erro: {
+        code: erro.code || 'HERE_HOMOLOGACAO_ERRO',
+        status: erro.status || null,
+      },
+    };
+  }
 }
 
 function verificarAmbiente() {
@@ -208,12 +348,12 @@ function verificarAmbiente() {
 }
 
 async function executar({ profundo = false } = {}) {
-  const [pg, dk, ct] = await Promise.all([
+  const [pg, dk, here, ct] = await Promise.all([
     verificarPostgres(),
     verificarDeak(profundo),
+    verificarHere(profundo),
     verificarContele(profundo),
   ]);
-  const here = verificarHere();
   const ambienteStatus = verificarAmbiente();
 
   const itens = [
