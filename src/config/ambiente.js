@@ -9,7 +9,7 @@ function lerInteiro(valor, padrao) {
 }
 
 const ambiente = {
-  port: lerInteiro(process.env.PORT, 3000),
+  port: lerInteiro(process.env.PORT, 3001),
   hereApiKey: process.env.HERE_API_KEY || '',
   corsOrigin: process.env.CORS_ORIGIN || '*',
   timezoneOffset: process.env.ROTEIRIZADOR_TIMEZONE_OFFSET || '-03:00',
