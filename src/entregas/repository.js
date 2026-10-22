@@ -47,8 +47,7 @@ async function listarEntregas({ empresa } = {}) {
     "AND o.Prioridade IN ('31','32','23') " +
     "AND o.noper NOT IN ('5.922','6.922','6.923','5.923') " +
     "AND ((o.Prioridade='31' AND status_aberto.Status IN ('3A','3E','40','4A')) " +
-    "OR (o.Prioridade='32' AND (status_aberto.Status IN ('3A','3E','40','4A') " +
-    "OR (canhoto_aberto.Status='4C' AND status_fluxo.Status='4A'))) " +
+    "OR (o.Prioridade='32' AND status_aberto.Status IN ('3A','3E','40','4A')) " +
     "OR (o.Prioridade='23' AND (status_aberto.Status IN ('3A','3E','40','4A') " +
     "OR (canhoto_aberto.Status='4C' AND status_fluxo.Status IN ('40','4A'))))) " +
     "AND (@empresa IS NULL OR " +
