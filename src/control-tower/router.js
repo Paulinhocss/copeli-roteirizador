@@ -3,6 +3,7 @@ const repository = require('./repository');
 const execucao = require('./execucao.repository');
 const alertas = require('./alertas.service');
 const homologacao = require('./homologacao.service');
+const demandas = require('./demandas.repository');
 
 const router = express.Router();
 
@@ -37,6 +38,31 @@ router.get('/homologacao', async (req, res) => {
       profundo: req.query.profundo === '1' || req.query.profundo === 'true',
     });
     res.json({ ok: true, homologacao: resultado });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+router.post('/demandas/sincronizar', async (req, res) => {
+  try {
+    const resultado = await demandas.sincronizar({
+      empresa: req.body && req.body.empresa,
+    });
+    res.json({ ok: true, resultado });
+  } catch (erro) {
+    responderErro(res, erro);
+  }
+});
+
+router.get('/demandas', async (req, res) => {
+  try {
+    const itens = await demandas.listar({
+      status: req.query.status,
+      modalidade: req.query.modalidade,
+      presente: req.query.presente,
+      limite: req.query.limite,
+    });
+    res.json({ ok: true, total: itens.length, demandas: itens });
   } catch (erro) {
     responderErro(res, erro);
   }
