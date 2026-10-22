@@ -12,6 +12,13 @@ const padroes = [
 ];
 
 const falhas = [];
+const nomesSigilososFrontend = [
+  'HERE_API_KEY',
+  'CONTELE_API_KEY',
+  'DEAK_DB_PASSWORD',
+  'DEAK_DB_USER',
+  'DEAK_DB_SERVER',
+];
 
 function visitar(dir) {
   for (const nome of fs.readdirSync(dir)) {
@@ -26,6 +33,15 @@ function visitar(dir) {
     const relativo = path.relative(raiz, completo).replaceAll('\\', '/');
     if (relativo === '.env.example') continue;
     const conteudo = fs.readFileSync(completo, 'utf8');
+
+    if (relativo.startsWith('apps/web/')) {
+      for (const nome of nomesSigilososFrontend) {
+        if (conteudo.includes(nome)) {
+          falhas.push(relativo + ': referencia a segredo de backend (' + nome + ')');
+        }
+      }
+    }
+
     for (const padrao of padroes) {
       padrao.regex.lastIndex = 0;
       if (padrao.regex.test(conteudo)) {
