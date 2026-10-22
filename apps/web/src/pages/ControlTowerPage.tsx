@@ -59,6 +59,7 @@ export function ControlTowerPage() {
   const [homologacao, setHomologacao] = useState<Homologacao | null>(null);
   const [posicoes, setPosicoes] = useState<PosicaoContele[]>([]);
   const [loading, setLoading] = useState(false);
+  const [testandoIntegracoes, setTestandoIntegracoes] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
@@ -103,6 +104,19 @@ export function ControlTowerPage() {
     stream.addEventListener('posicoes', onPosicoes as EventListener);
     return () => stream.close();
   }, []);
+
+  const testarIntegracoes = async () => {
+    setTestandoIntegracoes(true);
+    setErro(null);
+    try {
+      const response = await api<HomologacaoResponse>('/api/control-tower/homologacao?profundo=1');
+      setHomologacao(response.homologacao || null);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Falha ao testar integrações.');
+    } finally {
+      setTestandoIntegracoes(false);
+    }
+  };
 
   const abrirRota = async (id: number) => {
     const response = await api<RotaResponse>(`/api/control-tower/rotas/${id}`);
@@ -267,7 +281,16 @@ export function ControlTowerPage() {
 
       <div className="dashboard-grid">
         <section className="panel">
-          <div className="panel-header"><div><span className="eyebrow">Saúde técnica</span><h2>Homologação</h2></div>{homologacao?.pronto_para_homologar ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}</div>
+          <div className="panel-header">
+            <div><span className="eyebrow">Saúde técnica</span><h2>Homologação</h2></div>
+            <div className="inline-actions">
+              <button className="button compact" onClick={() => void testarIntegracoes()} disabled={testandoIntegracoes}>
+                <RefreshCw size={14} className={testandoIntegracoes ? 'spin' : ''} />
+                {testandoIntegracoes ? 'Testando...' : 'Testar integrações'}
+              </button>
+              {homologacao?.pronto_para_homologar ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
+            </div>
+          </div>
           <div className="stack compact-stack">
             {itensHomologacao.map((item) => (
               <div className="health-row" key={item.nome}>
