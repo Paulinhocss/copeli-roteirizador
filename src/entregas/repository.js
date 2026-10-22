@@ -22,7 +22,10 @@ async function listarEntregas({ empresa } = {}) {
     "CASE WHEN o.Prioridade='31' THEN 'PROPRIA' WHEN o.Prioridade='32' THEN 'TRANSPORTADORA' " +
     "WHEN o.Prioridade='23' THEN 'SEDEX' END AS Modalidade, " +
     "CASE WHEN o.Prioridade IN ('32','23') THEN CAST(1 AS bit) ELSE CAST(0 AS bit) END AS RequerDestinoOperacional, " +
-    "status_logistico.Status AS StatusLogistico, ultimo_evento.Status AS UltimoEventoStatus " +
+    "status_fluxo.Status AS StatusLogistico, " +
+    "status_aberto.Status AS StatusLogisticoAberto, " +
+    "canhoto_aberto.Status AS StatusCanhoto, " +
+    "ultimo_evento.Status AS UltimoEventoStatus " +
     "FROM Orcamento o " +
     "INNER JOIN Clientes c ON c.CGC=o.CGC " +
     "INNER JOIN OrcamentoItem oi ON oi.CodOrcamento_ID=o.CodOrcamento_ID AND oi.Status<>'C' " +
@@ -31,20 +34,29 @@ async function listarEntregas({ empresa } = {}) {
     "OUTER APPLY (SELECT TOP 1 sp.Status FROM StatusPedido sp " +
     "WHERE sp.CodOrcamento_ID=o.CodOrcamento_ID ORDER BY sp.DataInicio DESC) ultimo_evento " +
     "OUTER APPLY (SELECT TOP 1 sp.Status FROM StatusPedido sp " +
+    "WHERE sp.CodOrcamento_ID=o.CodOrcamento_ID " +
+    "AND sp.Status IN ('3A','3E','40','4A') ORDER BY sp.DataInicio DESC) status_fluxo " +
+    "OUTER APPLY (SELECT TOP 1 sp.Status FROM StatusPedido sp " +
     "WHERE sp.CodOrcamento_ID=o.CodOrcamento_ID AND sp.DataFim IS NULL " +
-    "AND sp.Status IN ('3A','3E','40','4A','4C') ORDER BY sp.DataInicio DESC) status_logistico " +
+    "AND sp.Status IN ('3A','3E','40','4A') ORDER BY sp.DataInicio DESC) status_aberto " +
+    "OUTER APPLY (SELECT TOP 1 sp.Status FROM StatusPedido sp " +
+    "WHERE sp.CodOrcamento_ID=o.CodOrcamento_ID AND sp.DataFim IS NULL " +
+    "AND sp.Status='4C' ORDER BY sp.DataInicio DESC) canhoto_aberto " +
     "WHERE o.DataEntrega>=DATEADD(DAY,-90,GETDATE()) " +
     "AND o.Status IN ('PE','PP','PF','pe','pp','pf') " +
     "AND o.Prioridade IN ('31','32','23') " +
     "AND o.noper NOT IN ('5.922','6.922','6.923','5.923') " +
-    "AND ((o.Prioridade='31' AND status_logistico.Status IN ('3A','3E','40','4A')) " +
-    "OR (o.Prioridade IN ('32','23') AND status_logistico.Status IN ('3A','3E','40','4A','4C'))) " +
+    "AND ((o.Prioridade='31' AND status_aberto.Status IN ('3A','3E','40','4A')) " +
+    "OR (o.Prioridade='32' AND (status_aberto.Status IN ('3A','3E','40','4A') " +
+    "OR (canhoto_aberto.Status='4C' AND status_fluxo.Status='4A'))) " +
+    "OR (o.Prioridade='23' AND (status_aberto.Status IN ('3A','3E','40','4A') " +
+    "OR (canhoto_aberto.Status='4C' AND status_fluxo.Status IN ('40','4A'))))) " +
     "AND (@empresa IS NULL OR " +
     "CASE WHEN o.Filial='01' THEN 'COPELI' WHEN o.Filial='02' THEN 'CPAINEL' " +
     "WHEN o.Filial='03' THEN 'IZAURA' WHEN o.Filial='04' THEN 'AUTONOMISTAS' ELSE o.Filial END=@empresa) " +
     "GROUP BY o.Filial,o.Status,o.CodVendedor_ID,o.CodOrcamento_ID,nf.NumNF,c.Nome,c.Apelido, " +
     "o.DataEntrega,o.Observacoes,o.TipoEnt,o.ENDENT,o.BAIENT,o.CIDENT,o.CEPENT,o.NumEnt, " +
-    "o.Prioridade,status_logistico.Status,ultimo_evento.Status " +
+    "o.Prioridade,status_fluxo.Status,status_aberto.Status,canhoto_aberto.Status,ultimo_evento.Status " +
     "ORDER BY o.DataEntrega,o.CodOrcamento_ID"
   );
 
