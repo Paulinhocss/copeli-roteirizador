@@ -155,3 +155,67 @@ export interface ConfiguracaoRoteirizacao {
   fim_jornada: string;
   tempo_parada_segundos: number;
 }
+
+export interface Motorista {
+  id: number;
+  nome: string;
+  ativo: boolean;
+}
+
+export interface Veiculo {
+  id: number;
+  nome: string;
+  placa?: string | null;
+  perfil: string;
+  max_paradas: number;
+  motorista_id?: number | null;
+  motorista_nome?: string | null;
+  ativo: boolean;
+}
+
+export interface FaixaCep {
+  id: number;
+  cep_inicial: string;
+  cep_final: string;
+  motorista_id: number;
+  motorista_nome: string;
+  ativo: boolean;
+}
+
+export interface PosicaoContele {
+  contele_vehicle_key?: string | null;
+  contele_vehicle_id?: string | number | null;
+  vehicle_name?: string | null;
+  plate_number?: string | null;
+  driver_name?: string | null;
+  lat: number;
+  lng: number;
+  speed?: number | null;
+  ignition?: number | boolean | null;
+  rastreador_atualizado_em?: string | null;
+  sincronizado_em?: string | null;
+}
+
+export interface RotaPlanejada {
+  motorista_id?: number | null;
+  motorista?: string | null;
+  veiculo?: Veiculo | null;
+  distKm?: number | null;
+  duracaoSegundos?: number | null;
+  entregas: EntregaPlanejamento[];
+}
+
+export interface PlanejamentoResultado {
+  ok: boolean;
+  modo: 'CEP' | 'OTIMIZADA';
+  rotas: RotaPlanejada[];
+  naoAtribuidas: Array<{ entrega: EntregaPlanejamento; motivo: string }>;
+  resumo: {
+    entregasRecebidas: number;
+    entregasRoteirizadas: number;
+    paradasPlanejadas: number;
+    naoAtribuidas: number;
+    rotas: number;
+    veiculosConsiderados?: number;
+  };
+}
