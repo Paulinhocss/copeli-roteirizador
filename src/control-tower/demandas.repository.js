@@ -20,6 +20,13 @@ function numero(valor) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function dataPrometida(valor) {
+  const s = texto(valor);
+  if (!s) return null;
+  const match = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : null;
+}
+
 function modalidade(entrega) {
   const codigo = String(campo(entrega, 'PrioridadeCodigo', 'prioridade_codigo') || '');
   const descricao = String(campo(entrega, 'Prioridade', 'prioridade') || '').toUpperCase();
@@ -41,7 +48,7 @@ function normalizarDemanda(entrega) {
     vendedor: texto(campo(entrega, 'VENDEDOR', 'vendedor')),
     cliente: texto(campo(entrega, 'CLIENTE', 'cliente')),
     nome_fantasia: texto(campo(entrega, 'NomeFantasia', 'nome_fantasia')),
-    data_prometida: texto(campo(entrega, 'DataEntrega', 'data_prometida')),
+    data_prometida: dataPrometida(campo(entrega, 'DataEntrega', 'data_prometida')),
     observacao: texto(campo(entrega, 'Observacao', 'observacao')),
     tipo_logradouro: texto(campo(entrega, 'TipoEnt', 'tipo_logradouro')),
     endereco: texto(campo(entrega, 'ENDENT', 'endereco')),
