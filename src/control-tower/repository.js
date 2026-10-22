@@ -18,9 +18,13 @@ function hojeSaoPaulo() {
 
 async function garantirEstrutura() {
   if (!postgres.configurado()) return false;
-  const arquivo = path.resolve(__dirname, '../../sql/002_control_tower.sql');
-  const sql = fs.readFileSync(arquivo, 'utf8');
-  await postgres.query(sql);
+  for (const relativo of [
+    '../../sql/002_control_tower.sql',
+    '../../sql/007_demandas_snapshot.sql',
+  ]) {
+    const arquivo = path.resolve(__dirname, relativo);
+    await postgres.query(fs.readFileSync(arquivo, 'utf8'));
+  }
   return true;
 }
 
