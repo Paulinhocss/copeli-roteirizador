@@ -50,7 +50,7 @@ npm run dev
 ## Validação
 
 ```bash
-npm run check
+npm run check:v3
 ```
 
 Executa:
