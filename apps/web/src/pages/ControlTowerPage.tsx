@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, RefreshCw, Route as RouteIcon, Truck } from 'lucide-react';
 import { api, formatCurrency, todaySaoPaulo } from '../lib/api';
 import { OperationsMap } from '../components/OperationsMap';
@@ -60,24 +60,29 @@ export function ControlTowerPage() {
   const [posicoes, setPosicoes] = useState<PosicaoContele[]>([]);
   const [loading, setLoading] = useState(false);
   const [testandoIntegracoes, setTestandoIntegracoes] = useState(false);
+  const homologacaoProfundaExecutada = useRef(false);
   const [erro, setErro] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
     setErro(null);
     try {
+      const homologacaoPromise = homologacaoProfundaExecutada.current
+        ? Promise.resolve<HomologacaoResponse | null>(null)
+        : api<HomologacaoResponse>('/api/control-tower/homologacao');
+
       const [r, rs, a, o, h] = await Promise.all([
         api<ResumoResponse>(`/api/control-tower/resumo?data=${encodeURIComponent(data)}`),
         api<RotasResponse>(`/api/control-tower/rotas?data=${encodeURIComponent(data)}`),
         api<AlertasResponse>('/api/control-tower/alertas?status=ABERTO&limite=50'),
         api<OcorrenciasResponse>('/api/control-tower/ocorrencias?status=ABERTA&limite=50'),
-        api<HomologacaoResponse>('/api/control-tower/homologacao'),
+        homologacaoPromise,
       ]);
       setResumo(r.resumo || vazio);
       setRotas(rs.rotas || []);
       setAlertas(a.alertas || []);
       setOcorrencias(o.ocorrencias || []);
-      setHomologacao(h.homologacao || null);
+      if (h) setHomologacao(h.homologacao || null);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao carregar o cockpit.');
     } finally {
@@ -110,6 +115,7 @@ export function ControlTowerPage() {
     setErro(null);
     try {
       const response = await api<HomologacaoResponse>('/api/control-tower/homologacao?profundo=1');
+      homologacaoProfundaExecutada.current = true;
       setHomologacao(response.homologacao || null);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao testar integrações.');
