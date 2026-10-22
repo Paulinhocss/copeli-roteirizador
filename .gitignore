@@ -1,3 +1,9 @@
 node_modules/
 .env
+.env.*
+!.env.example
+dist/
+apps/*/dist/
+apps/*/.vite/
 *.log
+.DS_Store
