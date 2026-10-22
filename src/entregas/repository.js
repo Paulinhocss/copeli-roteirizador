@@ -51,11 +51,8 @@ async function listarEntregas({ empresa } = {}) {
     "AND o.Status IN ('PE','PP','PF','pe','pp','pf') " +
     "AND o.Prioridade IN ('31','32','23') " +
     "AND o.noper NOT IN ('5.922','6.922','6.923','5.923') " +
-    "AND ((o.Prioridade IN ('31','32') AND (status_especiais.Status IN ('3A','3E','40') " +
-    "OR (ultimo_4a.Status='4A' AND ultimo_4a.DataFim IS NULL))) " +
-    "OR (o.Prioridade='23' AND (status_especiais.Status IN ('3A','3E','40') " +
-    "OR (ultimo_4a.Status='4A' AND ultimo_4a.DataFim IS NULL) " +
-    "OR (canhoto_aberto.Status='4C' AND status_fluxo.Status='40')))) " +
+    "AND (status_especiais.Status IN ('3A','3E','40') " +
+    "OR (ultimo_4a.Status='4A' AND ultimo_4a.DataFim IS NULL)) " +
     "AND (@empresa IS NULL OR " +
     "CASE WHEN o.Filial='01' THEN 'COPELI' WHEN o.Filial='02' THEN 'CPAINEL' " +
     "WHEN o.Filial='03' THEN 'IZAURA' WHEN o.Filial='04' THEN 'AUTONOMISTAS' ELSE o.Filial END=@empresa) " +
