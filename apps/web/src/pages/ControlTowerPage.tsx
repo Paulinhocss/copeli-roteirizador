@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, RefreshCw, Route as RouteIcon, Truck } from 'lucide-react';
 import { api, formatCurrency, todaySaoPaulo } from '../lib/api';
 import { OperationsMap } from '../components/OperationsMap';
@@ -291,11 +291,11 @@ export function ControlTowerPage() {
   );
 }
 
-function Kpi({ label, value, detail, icon }: { label: string; value: string | number; detail: string; icon?: React.ReactNode }) {
+function Kpi({ label, value, detail, icon }: { label: string; value: string | number; detail: string; icon?: ReactNode }) {
   return <article className="kpi-card"><div className="kpi-top"><span>{label}</span>{icon}</div><strong>{value}</strong><small>{detail}</small></article>;
 }
 
-function Badge({ children, tone }: { children: React.ReactNode; tone: string }) {
+function Badge({ children, tone }: { children: ReactNode; tone: string }) {
   return <span className={`badge ${tone}`}>{children}</span>;
 }
 
