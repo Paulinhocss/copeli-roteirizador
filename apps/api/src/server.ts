@@ -3,7 +3,8 @@ import dotenv from 'dotenv';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+const repoRoot = path.resolve(__dirname, '../../..');
+dotenv.config({ path: path.join(repoRoot, '.env') });
 
 // Os modulos de dominio atuais continuam em src/ durante a migracao.
 // O novo entrypoint ja e TypeScript; a conversao dos modulos de dominio sera incremental.
@@ -26,7 +27,7 @@ const conteleRouter = require('../../../src/integracoes/contele/router');
 const conteleRealtime = require('../../../src/integracoes/contele/realtime');
 
 const app = express();
-const webDist = path.resolve(process.cwd(), 'apps/web/dist');
+const webDist = path.join(repoRoot, 'apps/web/dist');
 
 app.disable('x-powered-by');
 app.use(cors({
