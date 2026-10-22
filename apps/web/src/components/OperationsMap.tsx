@@ -7,7 +7,7 @@ import {
   TileLayer,
   useMap,
 } from 'react-leaflet';
-import type { Rota } from '../types';
+import type { PosicaoContele, Rota } from '../types';
 
 function FitRoute({ rota }: { rota?: Rota | null }) {
   const map = useMap();
@@ -27,7 +27,7 @@ function FitRoute({ rota }: { rota?: Rota | null }) {
   return null;
 }
 
-export function OperationsMap({ rota }: { rota?: Rota | null }) {
+export function OperationsMap({ rota, posicoes = [] }: { rota?: Rota | null; posicoes?: PosicaoContele[] }) {
   const points = (rota?.paradas || [])
     .map((p) => ({
       parada: p,
@@ -65,6 +65,22 @@ export function OperationsMap({ rota }: { rota?: Rota | null }) {
           </Popup>
         </CircleMarker>
       ))}
+      {posicoes
+        .filter((p) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)))
+        .map((p, index) => (
+          <CircleMarker
+            key={String(p.contele_vehicle_key || p.contele_vehicle_id || p.plate_number || index)}
+            center={[Number(p.lat), Number(p.lng)]}
+            radius={8}
+            pathOptions={{ weight: 4 }}
+          >
+            <Popup>
+              <strong>{p.vehicle_name || p.plate_number || 'Veículo'}</strong><br />
+              {p.driver_name || 'Motorista não identificado'}<br />
+              {p.speed !== null && p.speed !== undefined ? `${Math.round(Number(p.speed))} km/h` : 'velocidade indisponível'}
+            </Popup>
+          </CircleMarker>
+        ))}
     </MapContainer>
   );
 }
