@@ -14,7 +14,8 @@
     "test": "node --test tests/*.test.js",
     "verify:secrets": "node scripts/verificar-segredos.cjs",
     "prestart": "npm run build",
-    "start": "npm --workspace @copeli/control-tower-api run start"
+    "start": "npm --workspace @copeli/control-tower-api run start",
+    "check:v3": "npm run check"
   },
   "engines": {
     "node": ">=24.19.0",
