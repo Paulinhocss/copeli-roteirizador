@@ -8,7 +8,8 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-const HERE_KEY = '4YEO9FLs9MHJE9eDar3MofG9qyF1pCaAWZTSAA6KCfM';
+const HERE_KEY = process.env.HERE_API_KEY;
+if (!HERE_KEY) console.warn('[HERE] HERE_API_KEY nao configurada. Geocodificacao e rotas ficarao indisponiveis.');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
