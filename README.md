@@ -37,7 +37,7 @@ Os módulos de domínio em `src/` foram preservados durante a primeira etapa da 
 
 ## Desenvolvimento local
 
-Node 20+ e npm 10+.
+Node 24.19+ e npm 11+.
 
 ```bash
 npm install
