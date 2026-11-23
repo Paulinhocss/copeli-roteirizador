@@ -1,4 +1,8 @@
+const fs = require('fs');
+const path = require('path');
 const postgres = require('../infrastructure/postgres');
+const ctSql = require('../infrastructure/control-tower-sqlserver');
+const store = require('../infrastructure/control-tower-store');
 const { listarEntregas } = require('../entregas/repository');
 
 function campo(obj, ...nomes) {
@@ -62,10 +66,18 @@ function normalizarDemanda(entrega) {
   };
 }
 
-async function sincronizar({ empresa } = {}) {
-  const entregas = await listarEntregas({ empresa });
-  const demandas = entregas.map(normalizarDemanda);
+async function garantirEstrutura() {
+  if (store.driver() === 'postgres') return true;
+  if (store.driver() !== 'mssql') return false;
 
+  const arquivo = path.resolve(__dirname, '../../sql/mssql/007_demandas_snapshot.sql');
+  const sql = fs.readFileSync(arquivo, 'utf8');
+  const pool = await ctSql.obterPool();
+  await pool.request().batch(sql);
+  return true;
+}
+
+async function sincronizarPostgres(entregas, demandas, empresa) {
   return postgres.transacao(async (db) => {
     let novas = 0;
     let atualizadas = 0;
@@ -146,6 +158,7 @@ async function sincronizar({ empresa } = {}) {
     );
 
     return {
+      persistencia: 'postgres',
       lidas_deak: entregas.length,
       novas,
       atualizadas,
@@ -154,14 +167,165 @@ async function sincronizar({ empresa } = {}) {
   });
 }
 
-async function listar({ status, modalidade: filtroModalidade, presente, limite = 200 } = {}) {
-  const statusNormalizado = status ? String(status).toUpperCase() : null;
-  const modalidadeNormalizada = filtroModalidade ? String(filtroModalidade).toUpperCase() : null;
-  const presenteNormalizado =
-    presente === undefined || presente === null || presente === ''
-      ? null
-      : presente === true || presente === '1' || presente === 'true';
+function bindDemanda(request, d) {
+  const sql = ctSql.sql;
+  request.input('empresa', sql.VarChar(40), d.empresa);
+  request.input('pedido', sql.VarChar(60), d.pedido);
+  request.input('num_nf', sql.VarChar(60), d.num_nf);
+  request.input('modalidade', sql.VarChar(24), d.modalidade);
+  request.input('prioridade', sql.VarChar(120), d.prioridade);
+  request.input('prioridade_codigo', sql.VarChar(12), d.prioridade_codigo);
+  request.input('status_deak_orcamento', sql.VarChar(12), d.status_deak_orcamento);
+  request.input('status_logistico', sql.VarChar(12), d.status_logistico);
+  request.input('vendedor', sql.VarChar(120), d.vendedor);
+  request.input('cliente', sql.VarChar(220), d.cliente);
+  request.input('nome_fantasia', sql.VarChar(220), d.nome_fantasia);
+  request.input('data_prometida', sql.Date, d.data_prometida);
+  request.input('observacao', sql.NVarChar(sql.MAX), d.observacao);
+  request.input('tipo_logradouro', sql.VarChar(40), d.tipo_logradouro);
+  request.input('endereco', sql.NVarChar(500), d.endereco);
+  request.input('numero', sql.VarChar(40), d.numero);
+  request.input('bairro', sql.VarChar(140), d.bairro);
+  request.input('cidade', sql.VarChar(140), d.cidade);
+  request.input('uf', sql.Char(2), d.uf);
+  request.input('cep', sql.VarChar(8), d.cep);
+  request.input('valor', sql.Decimal(18, 2), d.valor);
+  request.input('snapshot', sql.NVarChar(sql.MAX), JSON.stringify(d.snapshot));
+}
 
+async function sincronizarMssql(entregas, demandas, empresa) {
+  return ctSql.transacao(async (transaction) => {
+    let novas = 0;
+    let atualizadas = 0;
+
+    for (const demanda of demandas) {
+      if (!demanda.empresa || !demanda.pedido) continue;
+
+      const request = new ctSql.sql.Request(transaction);
+      bindDemanda(request, demanda);
+      const resultado = await request.query(`
+        DECLARE @existia BIT = CASE WHEN EXISTS (
+          SELECT 1 FROM dbo.ct_demanda WITH (UPDLOCK, HOLDLOCK)
+          WHERE empresa=@empresa AND pedido=@pedido
+        ) THEN 1 ELSE 0 END;
+
+        IF @existia = 1
+        BEGIN
+          UPDATE dbo.ct_demanda
+          SET num_nf=@num_nf,
+              modalidade=@modalidade,
+              prioridade=@prioridade,
+              prioridade_codigo=@prioridade_codigo,
+              status_deak_orcamento=@status_deak_orcamento,
+              status_logistico=@status_logistico,
+              vendedor=@vendedor,
+              cliente=@cliente,
+              nome_fantasia=@nome_fantasia,
+              data_prometida=@data_prometida,
+              observacao=@observacao,
+              tipo_logradouro=@tipo_logradouro,
+              endereco=@endereco,
+              numero=@numero,
+              bairro=@bairro,
+              cidade=@cidade,
+              uf=@uf,
+              cep=@cep,
+              valor=@valor,
+              presente_fila_deak=1,
+              ultima_vez_fila_deak_em=SYSDATETIME(),
+              saiu_fila_deak_em=NULL,
+              snapshot=@snapshot,
+              atualizado_em=SYSDATETIME()
+          WHERE empresa=@empresa AND pedido=@pedido;
+        END
+        ELSE
+        BEGIN
+          INSERT INTO dbo.ct_demanda (
+            empresa,pedido,num_nf,modalidade,prioridade,prioridade_codigo,
+            status_deak_orcamento,status_logistico,vendedor,cliente,nome_fantasia,
+            data_prometida,observacao,tipo_logradouro,endereco,numero,bairro,cidade,uf,cep,
+            valor,presente_fila_deak,status_control_tower,capturada_em,
+            ultima_vez_fila_deak_em,saiu_fila_deak_em,snapshot,atualizado_em
+          )
+          VALUES (
+            @empresa,@pedido,@num_nf,@modalidade,@prioridade,@prioridade_codigo,
+            @status_deak_orcamento,@status_logistico,@vendedor,@cliente,@nome_fantasia,
+            @data_prometida,@observacao,@tipo_logradouro,@endereco,@numero,@bairro,@cidade,@uf,@cep,
+            @valor,1,'CAPTURADA',SYSDATETIME(),SYSDATETIME(),NULL,@snapshot,SYSDATETIME()
+          );
+        END;
+
+        SELECT @existia AS existia;
+      `);
+
+      if (resultado.recordset[0] && resultado.recordset[0].existia) atualizadas += 1;
+      else novas += 1;
+    }
+
+    const chaves = demandas
+      .filter((d) => d.empresa && d.pedido)
+      .map((d) => ({ empresa: d.empresa, pedido: d.pedido }));
+
+    const request = new ctSql.sql.Request(transaction);
+    request.input('chaves', ctSql.sql.NVarChar(ctSql.sql.MAX), JSON.stringify(chaves));
+    request.input('empresaFiltro', ctSql.sql.VarChar(40), empresa ? String(empresa) : null);
+    const ausentes = await request.query(`
+      UPDATE d
+      SET presente_fila_deak=0,
+          saiu_fila_deak_em=COALESCE(d.saiu_fila_deak_em,SYSDATETIME()),
+          atualizado_em=SYSDATETIME()
+      FROM dbo.ct_demanda d
+      WHERE d.presente_fila_deak=1
+        AND d.status_control_tower NOT IN ('ENCERRADA','CANCELADA')
+        AND (@empresaFiltro IS NULL OR d.empresa=@empresaFiltro)
+        AND NOT EXISTS (
+          SELECT 1
+          FROM OPENJSON(@chaves)
+          WITH (
+            empresa VARCHAR(40) '$.empresa',
+            pedido VARCHAR(60) '$.pedido'
+          ) atual
+          WHERE atual.empresa=d.empresa
+            AND atual.pedido=d.pedido
+        );
+    `);
+
+    return {
+      persistencia: 'mssql',
+      lidas_deak: entregas.length,
+      novas,
+      atualizadas,
+      marcadas_fora_fila: (ausentes.rowsAffected && ausentes.rowsAffected[0]) || 0,
+    };
+  });
+}
+
+async function sincronizar({ empresa } = {}) {
+  const entregas = await listarEntregas({ empresa });
+  const demandas = entregas.map(normalizarDemanda);
+
+  const driver = store.driver();
+  if (driver === 'postgres') return sincronizarPostgres(entregas, demandas, empresa);
+  if (driver === 'mssql') return sincronizarMssql(entregas, demandas, empresa);
+
+  const erro = new Error('Persistencia do Control Tower nao configurada.');
+  erro.code = 'CT_STORE_NAO_CONFIGURADO';
+  throw erro;
+}
+
+function filtrosLista({ status, modalidade: filtroModalidade, presente, limite = 200 } = {}) {
+  return {
+    status: status ? String(status).toUpperCase() : null,
+    modalidade: filtroModalidade ? String(filtroModalidade).toUpperCase() : null,
+    presente:
+      presente === undefined || presente === null || presente === ''
+        ? null
+        : presente === true || presente === '1' || presente === 'true',
+    limite: Math.min(Math.max(Number(limite) || 200, 1), 1000),
+  };
+}
+
+async function listarPostgres(filtros) {
   const { rows } = await postgres.query(
     `SELECT *
      FROM ct_demanda
@@ -170,19 +334,44 @@ async function listar({ status, modalidade: filtroModalidade, presente, limite =
        AND ($3::boolean IS NULL OR presente_fila_deak=$3)
      ORDER BY data_prometida NULLS LAST, id
      LIMIT $4`,
-    [
-      statusNormalizado,
-      modalidadeNormalizada,
-      presenteNormalizado,
-      Math.min(Math.max(Number(limite) || 200, 1), 1000),
-    ]
+    [filtros.status, filtros.modalidade, filtros.presente, filtros.limite]
   );
-
   return rows;
+}
+
+async function listarMssql(filtros) {
+  const pool = await ctSql.obterPool();
+  const request = pool.request();
+  request.input('status', ctSql.sql.VarChar(24), filtros.status);
+  request.input('modalidade', ctSql.sql.VarChar(24), filtros.modalidade);
+  request.input('presente', ctSql.sql.Bit, filtros.presente);
+  request.input('limite', ctSql.sql.Int, filtros.limite);
+
+  const resultado = await request.query(`
+    SELECT TOP (@limite) *
+    FROM dbo.ct_demanda
+    WHERE (@status IS NULL OR status_control_tower=@status)
+      AND (@modalidade IS NULL OR modalidade=@modalidade)
+      AND (@presente IS NULL OR presente_fila_deak=@presente)
+    ORDER BY CASE WHEN data_prometida IS NULL THEN 1 ELSE 0 END, data_prometida, id;
+  `);
+  return resultado.recordset;
+}
+
+async function listar(opcoes = {}) {
+  const filtros = filtrosLista(opcoes);
+  const driver = store.driver();
+  if (driver === 'postgres') return listarPostgres(filtros);
+  if (driver === 'mssql') return listarMssql(filtros);
+
+  const erro = new Error('Persistencia do Control Tower nao configurada.');
+  erro.code = 'CT_STORE_NAO_CONFIGURADO';
+  throw erro;
 }
 
 module.exports = {
   normalizarDemanda,
+  garantirEstrutura,
   sincronizar,
   listar,
 };
