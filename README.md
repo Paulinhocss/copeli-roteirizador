@@ -111,3 +111,31 @@ Modalidades:
 Transportadora e SEDEX entram na rota da frota própria até o ponto de despacho. Vários pedidos para o mesmo ponto externo podem formar uma única parada física, mantendo cada pedido separado para SLA e rastreamento.
 
 Mais detalhes: [Arquitetura V3](docs/ARQUITETURA_V3.md) e [Control Tower](docs/CONTROL_TOWER.md).
+
+
+## Desenvolvimento local com SQL Server
+
+O ambiente local pode usar o mesmo SQL Server que hospeda a copia local do Deak, mantendo a persistencia do Control Tower em uma base separada.
+
+Arquitetura recomendada:
+
+- `Deak`: copia local das tabelas/views do ERP, lida pelo usuario `DEAK_DB_*`.
+- `ControlTowerDev`: base local exclusiva para dados do Control Tower.
+- Railway/HML/producao: PostgreSQL privado via `DATABASE_URL`, sem proxy TCP publico.
+
+No `.env`, habilite explicitamente:
+
+```env
+CT_STORE_DRIVER=mssql
+CT_SQL_DB_DATABASE=ControlTowerDev
+```
+
+Se `CT_SQL_DB_SERVER`, `CT_SQL_DB_USER` e `CT_SQL_DB_PASSWORD` ficarem vazios, o modo `mssql` reutiliza as credenciais `DEAK_DB_*` apenas para o servidor local configurado pelo desenvolvedor.
+
+Para validar a copia local do Deak e preparar `ControlTowerDev`:
+
+```powershell
+npm.cmd run check:local-sql
+```
+
+O comando verifica os objetos Deak usados pelo extrator e cria/valida somente a estrutura do Control Tower em `ControlTowerDev`. Ele nao cria tabelas na base Deak.
