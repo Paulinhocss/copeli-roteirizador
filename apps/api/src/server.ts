@@ -11,6 +11,8 @@ dotenv.config({ path: path.join(repoRoot, '.env') });
 const { ambiente } = require('../../../src/config/ambiente');
 const postgres = require('../../../src/infrastructure/postgres');
 const deak = require('../../../src/infrastructure/deak');
+const controlTowerStore = require('../../../src/infrastructure/control-tower-store');
+const controlTowerSql = require('../../../src/infrastructure/control-tower-sqlserver');
 const configuracoes = require('../../../src/roteirizacao/configuracoes.repository');
 const despachosRepository = require('../../../src/roteirizacao/despachos.repository');
 const { geocodificar, calcularRota } = require('../../../src/roteirizacao/here.service');
@@ -18,6 +20,7 @@ const { listarEntregas } = require('../../../src/entregas/repository');
 const entregasRouter = require('../../../src/entregas/router');
 const roteirizacaoRouter = require('../../../src/roteirizacao/router');
 const controlTowerRepository = require('../../../src/control-tower/repository');
+const controlTowerDemandas = require('../../../src/control-tower/demandas.repository');
 const controlTowerExecucao = require('../../../src/control-tower/execucao.repository');
 const controlTowerAlertas = require('../../../src/control-tower/alertas.service');
 const controlTowerRouter = require('../../../src/control-tower/router');
@@ -45,6 +48,8 @@ app.get('/api/health', (_req: Request, res: Response) => {
       here: Boolean(ambiente.hereApiKey),
       deak: deak.configurado(),
       postgres: postgres.configurado(),
+      persistenciaControlTower: controlTowerStore.driver(),
+      sqlServerLocalControlTower: controlTowerSql.configurado(),
       contele: conteleService.configurado(),
     },
   });
@@ -160,8 +165,16 @@ async function iniciar() {
     } catch (erro: any) {
       console.error('[POSTGRES] Nao foi possivel validar a estrutura:', erro.message);
     }
+  } else if (controlTowerStore.driver() === 'mssql') {
+    try {
+      await controlTowerSql.garantirBanco();
+      await controlTowerDemandas.garantirEstrutura();
+      console.log('[CT-SQL] ControlTowerDev validado no SQL Server local.');
+    } catch (erro: any) {
+      console.error('[CT-SQL] Nao foi possivel preparar a persistencia local:', erro.message);
+    }
   } else {
-    console.warn('[POSTGRES] DATABASE_URL nao configurada.');
+    console.warn('[STORE] Persistencia do Control Tower nao configurada.');
   }
 
   // A HERE nunca recebe credencial hardcoded. A unica fonte e process.env.HERE_API_KEY,
