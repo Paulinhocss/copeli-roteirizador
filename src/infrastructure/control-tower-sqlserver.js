@@ -7,7 +7,7 @@ function driverAtivo() {
   const driver = ambiente.controlTowerStore.driver;
   if (driver === 'mssql') return true;
   if (driver === 'postgres') return false;
-  return !ambiente.postgres.url && Boolean(ambiente.controlTowerSql.server);
+  return !ambiente.postgres.url && Boolean(process.env.CT_SQL_DB_SERVER);
 }
 
 function configurado() {
