@@ -15,7 +15,8 @@
     "verify:secrets": "node scripts/verificar-segredos.cjs",
     "prestart": "npm run build",
     "start": "npm --workspace @copeli/control-tower-api run start",
-    "check:v3": "npm run check"
+    "check:v3": "npm run check",
+    "check:local-sql": "node scripts/local/verificar-sql-local.js"
   },
   "engines": {
     "node": ">=24.19.0",
