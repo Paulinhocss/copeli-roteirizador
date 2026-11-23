@@ -17,6 +17,28 @@ const ambiente = {
     url: process.env.DATABASE_URL || process.env.ROTEIRIZADOR_DATABASE_URL || '',
     ssl: lerBooleano(process.env.PG_SSL, false),
   },
+  controlTowerStore: {
+    driver: String(process.env.CT_STORE_DRIVER || 'auto').toLowerCase(),
+  },
+  controlTowerSql: {
+    server: process.env.CT_SQL_DB_SERVER || process.env.DEAK_DB_SERVER || process.env.DB_SERVER || '',
+    port: lerInteiro(process.env.CT_SQL_DB_PORT || process.env.DEAK_DB_PORT || process.env.DB_PORT, 1433),
+    database: process.env.CT_SQL_DB_DATABASE || 'ControlTowerDev',
+    user: process.env.CT_SQL_DB_USER || process.env.DEAK_DB_USER || process.env.DB_USER || '',
+    password: process.env.CT_SQL_DB_PASSWORD || process.env.DEAK_DB_PASSWORD || process.env.DB_PASSWORD || '',
+    encrypt: lerBooleano(
+      process.env.CT_SQL_DB_ENCRYPT,
+      lerBooleano(process.env.DEAK_DB_ENCRYPT, false)
+    ),
+    trustServerCertificate: lerBooleano(
+      process.env.CT_SQL_DB_TRUST_CERT,
+      lerBooleano(process.env.DEAK_DB_TRUST_CERT, true)
+    ),
+    requestTimeout: lerInteiro(
+      process.env.CT_SQL_DB_REQUEST_TIMEOUT || process.env.DEAK_DB_REQUEST_TIMEOUT,
+      30000
+    ),
+  },
   contele: {
     apiKey: process.env.CONTELE_API_KEY || '',
     timeoutMs: lerInteiro(process.env.CONTELE_TIMEOUT_MS, 20000),
