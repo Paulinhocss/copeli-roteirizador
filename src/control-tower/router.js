@@ -18,7 +18,13 @@ function responderErro(res, erro) {
     'ROTA_PENDENTE',
   ]);
 
-  const status = erro.code === 'POSTGRES_NAO_CONFIGURADO'
+  const indisponivel = new Set([
+    'POSTGRES_NAO_CONFIGURADO',
+    'CT_STORE_NAO_CONFIGURADO',
+    'CT_SQL_NAO_CONFIGURADO',
+  ]);
+
+  const status = indisponivel.has(erro.code)
     ? 503
     : erros400.has(erro.code)
       ? 400
